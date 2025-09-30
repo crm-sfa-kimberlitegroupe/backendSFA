@@ -1,0 +1,26 @@
+### Test si l'API fonctionne
+GET http://localhost:3000/api/auth/test
+
+### Inscription d'un nouvel utilisateur
+POST http://localhost:3000/api/auth/register
+Content-Type: application/json
+
+{
+  "email": "test@example.com",
+  "password": "password123",
+  "firstName": "John",
+  "lastName": "Doe"
+}
+
+### Connexion
+POST http://localhost:3000/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "test@example.com",
+  "password": "password123"
+}
+
+### Obtenir le profil (remplacer YOUR_TOKEN par le token reçu)
+GET http://localhost:3000/api/auth/profile
+Authorization: Bearer YOUR_TOKEN

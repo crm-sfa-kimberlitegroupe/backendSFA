@@ -1,13 +1,15 @@
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { AppModule } from './app.module';
-
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
   // Activer CORS pour permettre les requêtes depuis le frontend
   app.enableCors({
-    origin: 'http://localhost:5173', // URL de votre frontend React
+    origin:
+      process.env.NODE_ENV === 'production'
+        ? [process.env.FRONTEND_URL || 'https://sfa-frontend.onrender.com']
+        : ['http://localhost:5173', 'http://localhost:5174'],
     credentials: true,
   });
 
@@ -21,10 +23,9 @@ async function bootstrap() {
   );
 
   // Préfixe global pour toutes les routes API
-  app.setGlobalPrefix("api");
+  app.setGlobalPrefix('api');
   const port = process.env.PORT ?? 3000;
   await app.listen(port);
-  console.log(`🚀 Backend démarré sur http://localhost:${port}/api`);
+  console.log(`  Backend démarré sur http://localhost:${port}/api`);
 }
-bootstrap();
-
+void bootstrap();

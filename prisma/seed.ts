@@ -6,6 +6,19 @@ const prisma = new PrismaClient();
 async function main() {
   console.log('🌱 Seeding database...');
 
+  // Create a default territory first
+  const defaultTerritory = await prisma.territory.upsert({
+    where: { code: 'DEFAULT' },
+    update: {},
+    create: {
+      code: 'DEFAULT',
+      name: 'Default Territory',
+      level: 'REGION',
+    },
+  });
+
+  console.log('✅ Default territory created:', defaultTerritory.name);
+
   // Create a default admin user
   const hashedPassword = await bcrypt.hash('admin123', 10);
 
@@ -14,11 +27,12 @@ async function main() {
     update: {},
     create: {
       email: 'admin@sfa.com',
-      password: hashedPassword,
-      first_name: 'Admin',
-      last_name: 'User',
+      passwordHash: hashedPassword,
+      firstName: 'Admin',
+      lastName: 'User',
       role: 'ADMIN',
       status: 'ACTIVE',
+      territoryId: defaultTerritory.id,
     },
   });
 

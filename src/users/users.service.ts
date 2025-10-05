@@ -6,6 +6,7 @@ import {
 import { User } from './entities/user.entity';
 import { CreateUserDto } from './dto/create-user.dto';
 import { PrismaService } from '../prisma/prisma.service';
+import { User as PrismaUser } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 
 @Injectable()
@@ -48,15 +49,7 @@ export class UsersService {
     });
 
     // Retourner l'utilisateur au format attendu
-    return {
-      id: newUser.id,
-      email: newUser.email,
-      password: newUser.passwordHash,
-      firstName: newUser.firstName,
-      lastName: newUser.lastName,
-      createdAt: newUser.createdAt,
-      updatedAt: newUser.updatedAt,
-    };
+    return this.mapPrismaUserToEntity(newUser);
   }
 
   async findByEmail(email: string): Promise<User | undefined> {
@@ -68,15 +61,7 @@ export class UsersService {
       return undefined;
     }
 
-    return {
-      id: user.id,
-      email: user.email,
-      password: user.passwordHash,
-      firstName: user.firstName,
-      lastName: user.lastName,
-      createdAt: user.createdAt,
-      updatedAt: user.updatedAt,
-    };
+    return this.mapPrismaUserToEntity(user);
   }
 
   async findById(id: string): Promise<User | undefined> {
@@ -88,28 +73,33 @@ export class UsersService {
       throw new NotFoundException('Utilisateur non trouvé');
     }
 
-    return {
-      id: user.id,
-      email: user.email,
-      password: user.passwordHash,
-      firstName: user.firstName,
-      lastName: user.lastName,
-      createdAt: user.createdAt,
-      updatedAt: user.updatedAt,
-    };
+    return this.mapPrismaUserToEntity(user);
   }
 
   async findAll(): Promise<User[]> {
     const users = await this.prisma.user.findMany();
+    return users.map((user) => this.mapPrismaUserToEntity(user));
+  }
 
-    return users.map((user) => ({
-      id: user.id,
-      email: user.email,
-      password: user.passwordHash,
-      firstName: user.firstName,
-      lastName: user.lastName,
-      createdAt: user.createdAt,
-      updatedAt: user.updatedAt,
-    }));
+  /**
+   * Mapper un utilisateur Prisma vers l'entité User
+   */
+  private mapPrismaUserToEntity(prismaUser: PrismaUser): User {
+    return {
+      id: prismaUser.id,
+      email: prismaUser.email,
+      password: prismaUser.passwordHash,
+      firstName: prismaUser.firstName,
+      lastName: prismaUser.lastName,
+      lockedUntil: prismaUser.lockedUntil ?? undefined,
+      resetToken: prismaUser.resetToken ?? undefined,
+      resetTokenExpiry: prismaUser.resetTokenExpiry ?? undefined,
+      twoFactorSecret: prismaUser.twoFactorSecret ?? undefined,
+      twoFactorEnabled: prismaUser.twoFactorEnabled,
+      emailVerified: prismaUser.emailVerified,
+      emailVerificationToken: prismaUser.emailVerificationToken ?? undefined,
+      createdAt: prismaUser.createdAt,
+      updatedAt: prismaUser.updatedAt,
+    };
   }
 }

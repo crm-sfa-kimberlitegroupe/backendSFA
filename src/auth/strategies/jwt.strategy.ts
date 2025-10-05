@@ -5,10 +5,6 @@ import { AuthService } from '../auth.service';
 import { JwtPayload, RequestUser } from '../interfaces';
 import { AUTH_ERRORS } from '../constants';
 
-/**
- * JWT authentication strategy
- * Validates JWT tokens and attaches user information to requests
- */
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
   constructor(private readonly authService: AuthService) {
@@ -21,13 +17,6 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     super(options);
   }
 
-  /**
-   * Validates the JWT payload and returns user data
-   * This method is called automatically by Passport after JWT verification
-   * @param payload - Decoded JWT payload
-   * @returns User data to be attached to the request
-   * @throws UnauthorizedException if user is not found
-   */
   async validate(payload: JwtPayload): Promise<RequestUser> {
     const user = await this.authService.validateUser(payload.sub);
 

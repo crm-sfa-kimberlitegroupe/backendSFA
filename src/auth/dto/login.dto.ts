@@ -1,4 +1,11 @@
-import { IsEmail, IsNotEmpty, IsString, MinLength } from 'class-validator';
+import {
+  IsEmail,
+  IsNotEmpty,
+  IsString,
+  MinLength,
+  IsOptional,
+  Length,
+} from 'class-validator';
 import { AUTH_CONSTANTS } from '../constants';
 
 export class LoginDto {
@@ -12,4 +19,9 @@ export class LoginDto {
     message: `Le mot de passe doit contenir au moins ${AUTH_CONSTANTS.MIN_PASSWORD_LENGTH} caractères`,
   })
   password: string;
+
+  @IsOptional()
+  @IsString()
+  @Length(6, 6, { message: 'Le code 2FA doit contenir 6 chiffres' })
+  twoFactorCode?: string;
 }

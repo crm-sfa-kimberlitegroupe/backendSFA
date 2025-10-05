@@ -1,98 +1,289 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# 🚀 SFA Backend - API NestJS
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+API Backend pour l'application SFA (Sales Force Automation) - CRM pour la gestion de la force de vente.
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+## 📋 Description
 
-## Description
+API REST construite avec NestJS, Prisma ORM et PostgreSQL avec PostGIS pour la géolocalisation.
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+**Frontend déployé sur Vercel** - Ce repository contient uniquement le backend.
 
-## Project setup
+## 🛠️ Technologies
 
-```bash
-$ npm install
+- **NestJS** - Framework Node.js
+- **Prisma** - ORM pour PostgreSQL
+- **PostgreSQL 16** - Base de données avec PostGIS
+- **JWT + Passport** - Authentification
+- **bcrypt** - Hash des mots de passe
+- **class-validator** - Validation des DTOs
+
+## 📁 Structure du Projet
+
+```
+src/
+├── auth/                    # Module d'authentification
+│   ├── dto/                # DTOs (login, register)
+│   ├── guards/             # Guards JWT
+│   ├── strategies/         # Stratégies Passport
+│   └── decorators/         # Décorateurs personnalisés
+├── users/                  # Module utilisateurs
+├── territories/            # Module territoires
+├── outlets/                # Module points de vente
+├── routes/                 # Module planification routes
+├── visits/                 # Module visites
+├── skus/                   # Module produits
+├── orders/                 # Module commandes
+├── payments/               # Module paiements
+└── prisma/                 # Schéma et migrations
 ```
 
-## Compile and run the project
+## 🚀 Installation Locale
+
+### Prérequis
+
+- Node.js 18+
+- PostgreSQL 14+ avec PostGIS
+- npm ou yarn
+
+### Étape 1 : Installer les Dépendances
 
 ```bash
-# development
-$ npm run start
-
-# watch mode
-$ npm run start:dev
-
-# production mode
-$ npm run start:prod
+npm install
 ```
 
-## Run tests
+### Étape 2 : Configurer la Base de Données
+
+**Créer la base PostgreSQL :**
+```bash
+# Ouvrez psql
+psql -U postgres
+
+# Créez la base de données
+CREATE DATABASE sfa_db;
+
+# Quittez
+\q
+```
+
+**Configurer les variables d'environnement :**
+```bash
+# Copier le fichier d'environnement
+cp .env.example .env
+```
+
+Éditez `.env` avec vos informations :
+```env
+DATABASE_URL="postgresql://postgres:password@localhost:5432/sfa_db?schema=public"
+JWT_SECRET="votre-secret-jwt-super-securise"
+JWT_EXPIRATION="24h"
+NODE_ENV="development"
+PORT="3000"
+```
+
+### Étape 3 : Initialiser Prisma
 
 ```bash
-# unit tests
-$ npm run test
+# Générer le client Prisma
+npm run prisma:generate
 
-# e2e tests
-$ npm run test:e2e
+# Créer et appliquer les migrations
+npm run prisma:migrate
+# Nommez votre migration (ex: "init")
 
-# test coverage
-$ npm run test:cov
+# (Optionnel) Remplir avec des données de test
+npm run prisma:seed
 ```
 
-## Deployment
+Cela créera un utilisateur admin par défaut :
+- **Email** : `admin@sfa.com`
+- **Password** : `admin123`
 
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
-
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
+### Étape 4 : Démarrer le Serveur
 
 ```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
+npm run start:dev
 ```
 
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
+Le backend sera disponible sur : **http://localhost:3000/api**
 
-## Resources
+### Étape 5 : Vérifier l'Installation
 
-Check out a few resources that may come in handy when working with NestJS:
+**Tester l'API :**
+```bash
+# Health check
+curl http://localhost:3000/api/auth/health
 
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
+# Connexion avec l'admin
+curl -X POST http://localhost:3000/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"admin@sfa.com","password":"admin123"}'
+```
 
-## Support
+**Prisma Studio (Interface graphique) :**
+```bash
+npm run prisma:studio
+```
+Ouvre une interface web sur `http://localhost:5555`
 
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
+## 📝 Scripts Disponibles
 
-## Stay in touch
+```bash
+# Développement
+npm run start:dev          # Démarrer avec hot-reload
 
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
+# Production
+npm run build              # Build de production
+npm run start:prod         # Démarrer en production
 
-## License
+# Base de données
+npx prisma studio          # Interface graphique Prisma
+npx prisma migrate dev     # Créer une migration
+npx prisma generate        # Générer le client Prisma
+npx prisma migrate deploy  # Appliquer les migrations (production)
 
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+# Tests
+npm run test               # Tests unitaires
+npm run test:e2e           # Tests end-to-end
+npm run test:cov           # Couverture de tests
+```
+
+## 🌐 Déploiement sur Render
+
+Consultez le guide complet : [DEPLOIEMENT_RENDER.md](./DEPLOIEMENT_RENDER.md)
+
+### Configuration Rapide
+
+1. Créer une base PostgreSQL sur Render
+2. Créer un Web Service avec ces paramètres :
+   - **Build Command** : `npm install && npx prisma generate && npm run build`
+   - **Start Command** : `npm run start:prod`
+   - **Health Check Path** : `/api/auth/health`
+
+3. Variables d'environnement requises :
+   ```
+   NODE_ENV=production
+   DATABASE_URL=[Internal Database URL de Render]
+   JWT_SECRET=[Clé secrète forte]
+   JWT_EXPIRATION=24h
+   PORT=10000
+   FRONTEND_URL=https://votre-frontend.vercel.app
+   ```
+
+## 🔒 Sécurité
+
+### Variables d'Environnement
+
+**Ne jamais commiter le fichier `.env` !**
+
+Fichier `.env.example` fourni comme template.
+
+### Générer un JWT_SECRET Sécurisé
+
+**Linux/Mac:**
+```bash
+openssl rand -base64 32
+```
+
+**Windows PowerShell:**
+```powershell
+[Convert]::ToBase64String((1..32 | ForEach-Object { Get-Random -Minimum 0 -Maximum 256 }))
+```
+
+## 📊 Routes API Principales
+
+| Méthode | Route | Description | Auth |
+|---------|-------|-------------|------|
+| POST | `/api/auth/register` | Inscription | Non |
+| POST | `/api/auth/login` | Connexion | Non |
+| GET | `/api/auth/profile` | Profil utilisateur | Oui |
+| GET | `/api/auth/health` | Health check | Non |
+| GET | `/api/users` | Liste utilisateurs | Oui |
+| GET | `/api/territories` | Liste territoires | Oui |
+| GET | `/api/outlets` | Liste points de vente | Oui |
+| POST | `/api/visits` | Créer une visite | Oui |
+| GET | `/api/skus` | Catalogue produits | Oui |
+| POST | `/api/orders` | Créer une commande | Oui |
+
+## 🗄️ Base de Données
+
+### Schéma Prisma
+
+Le schéma inclut :
+- Gestion hiérarchique des territoires
+- Utilisateurs avec rôles (ADMIN, SUP, REP)
+- Points de vente avec géolocalisation (PostGIS)
+- Routes et planification
+- Visites et merchandising
+- Catalogue produits (SKU)
+- Commandes et paiements
+- Audit logs et synchronisation
+
+### Migrations
+
+```bash
+# Créer une nouvelle migration
+npx prisma migrate dev --name nom_de_la_migration
+
+# Appliquer les migrations en production
+npx prisma migrate deploy
+
+# Réinitialiser la base (⚠️ DANGER - supprime toutes les données)
+npx prisma migrate reset
+```
+
+## 🐛 Dépannage
+
+### Le backend ne démarre pas
+
+```bash
+# Vérifier PostgreSQL
+pg_isready
+
+# Vérifier la connexion
+psql -U postgres -d sfa_db
+
+# Régénérer le client Prisma
+npx prisma generate
+```
+
+### Erreur de connexion à PostgreSQL
+- Vérifiez que PostgreSQL est démarré
+- Vérifiez les credentials dans `.env`
+- Vérifiez que la base `sfa_db` existe
+
+### Erreurs TypeScript sur Prisma
+- Exécutez `npm run prisma:generate`
+- Redémarrez votre IDE
+
+### Erreur de migration
+
+```bash
+# Réinitialiser les migrations (⚠️ supprime les données)
+npx prisma migrate reset
+
+# Ou créer une nouvelle migration
+npx prisma migrate dev --name fix_issue
+```
+
+### Tables non créées
+- Exécutez `npm run prisma:migrate`
+- Vérifiez les logs pour les erreurs de migration
+
+### Erreur CORS
+
+Vérifiez que `FRONTEND_URL` dans `.env` correspond à l'URL de votre frontend sur Vercel.
+
+## 📚 Documentation
+
+- [DEPLOIEMENT_RENDER.md](./DEPLOIEMENT_RENDER.md) - Guide de déploiement complet
+- [CHECKLIST_DEPLOIEMENT.md](./CHECKLIST_DEPLOIEMENT.md) - Checklist avant déploiement
+- [NestJS Documentation](https://docs.nestjs.com)
+- [Prisma Documentation](https://www.prisma.io/docs)
+
+## 📄 Licence
+
+Ce projet est sous licence privée.
+
+---
+
+**Développé avec ❤️ pour optimiser la force de vente**

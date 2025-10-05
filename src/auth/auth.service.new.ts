@@ -30,8 +30,8 @@ import {
 import { AUTH_ERRORS, AUTH_MESSAGES, AUTH_CONSTANTS } from './constants';
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
-import speakeasy from 'speakeasy';
-import qrcode from 'qrcode';
+import * as speakeasy from 'speakeasy';
+import * as qrcode from 'qrcode';
 
 /**
  * Service d'authentification
@@ -610,7 +610,6 @@ export class AuthService {
    * Réinitialiser les tentatives de connexion échouées après une connexion réussie
    */
   private async resetFailedLoginAttempts(userId: string): Promise<void> {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
     await this.prisma.user.update({
       where: { id: userId },
       data: { lockedUntil: null },

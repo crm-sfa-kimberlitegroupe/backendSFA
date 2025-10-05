@@ -10,7 +10,7 @@ export const getJwtConfig = (): JwtModuleOptions => {
 
   if (!secret) {
     console.warn(
-      "⚠️  JWT_SECRET non trouvé dans les variables d'environnement. Utilisation du secret par défaut (NON RECOMMANDÉ EN PRODUCTION)",
+      "  JWT_SECRET non trouvé dans les variables d'environnement. Utilisation du secret par défaut (NON RECOMMANDÉ EN PRODUCTION)",
     );
   }
 

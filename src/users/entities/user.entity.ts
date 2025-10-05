@@ -4,6 +4,22 @@ export class User {
   password: string;
   firstName: string;
   lastName: string;
+
+  // Protection contre les tentatives de connexion (SCRUM-39)
+  lockedUntil?: Date;
+
+  // Récupération de mot de passe (SCRUM-38)
+  resetToken?: string;
+  resetTokenExpiry?: Date;
+
+  // Authentification à deux facteurs (SCRUM-40)
+  twoFactorSecret?: string;
+  twoFactorEnabled: boolean;
+
+  // Vérification d'email (Bonus)
+  emailVerified: boolean;
+  emailVerificationToken?: string;
+
   createdAt: Date;
   updatedAt: Date;
 }

@@ -9,7 +9,7 @@ import {
   Req,
   Ip,
 } from '@nestjs/common';
-import { Request } from 'express';
+import type { Request } from 'express';
 import { Throttle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
 import {

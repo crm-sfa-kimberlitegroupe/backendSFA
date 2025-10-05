@@ -8,7 +8,11 @@ async function bootstrap() {
   app.enableCors({
     origin:
       process.env.NODE_ENV === 'production'
-        ? [process.env.FRONTEND_URL || 'https://sfa-frontend.onrender.com']
+        ? [
+            process.env.FRONTEND_URL || 'https://sfa-frontend.onrender.com',
+            'https://kimberlitegroupe.com',
+            'https://www.kimberlitegroupe.com',
+          ]
         : ['http://localhost:5173', 'http://localhost:5174'],
     credentials: true,
   });

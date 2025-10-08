@@ -5,8 +5,10 @@ import {
 } from '@nestjs/common';
 import { User } from './entities/user.entity';
 import { CreateUserDto } from './dto/create-user.dto';
+import { UpdateUserDto } from './dto/update-user.dto';
+import { UserPerformanceDto } from './dto/user-performance.dto';
 import { PrismaService } from '../prisma/prisma.service';
-import { User as PrismaUser } from '@prisma/client';
+import { User as PrismaUser, RoleEnum } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 
 @Injectable()
@@ -42,9 +44,9 @@ export class UsersService {
         passwordHash: hashedPassword,
         firstName: createUserDto.firstName,
         lastName: createUserDto.lastName,
-        role: 'REP', // Rôle par défaut, à adapter selon vos besoins
+        role: (createUserDto.role as RoleEnum) || 'REP', // Rôle par défaut: REP
         status: 'ACTIVE',
-        territoryId: defaultTerritory.id,
+        territoryId: createUserDto.territoryId || defaultTerritory.id,
       },
     });
 
@@ -81,6 +83,204 @@ export class UsersService {
     return users.map((user) => this.mapPrismaUserToEntity(user));
   }
 
+  async update(id: string, updateUserDto: UpdateUserDto): Promise<User> {
+    // Vérifier si l'utilisateur existe
+    const existingUser = await this.prisma.user.findUnique({
+      where: { id },
+    });
+
+    if (!existingUser) {
+      throw new NotFoundException('Utilisateur non trouvé');
+    }
+
+    // Si l'email est modifié, vérifier qu'il n'est pas déjà utilisé
+    if (updateUserDto.email && updateUserDto.email !== existingUser.email) {
+      const emailExists = await this.prisma.user.findUnique({
+        where: { email: updateUserDto.email },
+      });
+
+      if (emailExists) {
+        throw new ConflictException('Cet email est déjà utilisé');
+      }
+    }
+
+    // Préparer les données à mettre à jour
+    const updateData: any = {
+      ...updateUserDto,
+    };
+
+    // Si le mot de passe est fourni, le hasher
+    if (updateUserDto.password) {
+      updateData.passwordHash = await bcrypt.hash(updateUserDto.password, 10);
+      delete updateData.password;
+    }
+
+    // Mettre à jour l'utilisateur
+    const updatedUser = await this.prisma.user.update({
+      where: { id },
+      data: updateData,
+    });
+
+    return this.mapPrismaUserToEntity(updatedUser);
+  }
+
+  async remove(id: string): Promise<void> {
+    // Vérifier si l'utilisateur existe
+    const existingUser = await this.prisma.user.findUnique({
+      where: { id },
+    });
+
+    if (!existingUser) {
+      throw new NotFoundException('Utilisateur non trouvé');
+    }
+
+    // Supprimer l'utilisateur
+    await this.prisma.user.delete({
+      where: { id },
+    });
+  }
+
+  async toggleStatus(id: string): Promise<User> {
+    // Vérifier si l'utilisateur existe
+    const existingUser = await this.prisma.user.findUnique({
+      where: { id },
+    });
+
+    if (!existingUser) {
+      throw new NotFoundException('Utilisateur non trouvé');
+    }
+
+    // Inverser le statut
+    const newStatus = existingUser.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE';
+
+    // Mettre à jour le statut
+    const updatedUser = await this.prisma.user.update({
+      where: { id },
+      data: { status: newStatus },
+    });
+
+    return this.mapPrismaUserToEntity(updatedUser);
+  }
+
+  /**
+   * Récupérer les performances d'un utilisateur
+   */
+  async getUserPerformance(userId: string): Promise<UserPerformanceDto> {
+    // Vérifier que l'utilisateur existe
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+    });
+
+    if (!user) {
+      throw new NotFoundException('Utilisateur non trouvé');
+    }
+
+    // Calculer le début et la fin du mois en cours
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+
+    // Compter le nombre total de PDV dans le territoire de l'utilisateur
+    const totalOutlets = await this.prisma.outlet.count({
+      where: {
+        territoryId: user.territoryId,
+        status: 'APPROVED',
+      },
+    });
+
+    // Compter les visites ce mois
+    const visitsThisMonth = await this.prisma.visit.count({
+      where: {
+        userId: userId,
+        checkinAt: {
+          gte: startOfMonth,
+          lte: endOfMonth,
+        },
+      },
+    });
+
+    // Compter les PDV uniques visités ce mois
+    const visitedOutlets = await this.prisma.visit.findMany({
+      where: {
+        userId: userId,
+        checkinAt: {
+          gte: startOfMonth,
+          lte: endOfMonth,
+        },
+      },
+      select: {
+        outletId: true,
+      },
+      distinct: ['outletId'],
+    });
+
+    // Compter les commandes ce mois
+    const ordersThisMonth = await this.prisma.order.count({
+      where: {
+        userId: userId,
+        createdAt: {
+          gte: startOfMonth,
+          lte: endOfMonth,
+        },
+        status: {
+          in: ['CONFIRMED', 'DELIVERED'],
+        },
+      },
+    });
+
+    // Calculer le CA total ce mois
+    const ordersSum = await this.prisma.order.aggregate({
+      where: {
+        userId: userId,
+        createdAt: {
+          gte: startOfMonth,
+          lte: endOfMonth,
+        },
+        status: {
+          in: ['CONFIRMED', 'DELIVERED'],
+        },
+      },
+      _sum: {
+        totalTtc: true,
+      },
+    });
+
+    // Calculer les scores Perfect Store (moyenne des scores de visite)
+    const visitScores = await this.prisma.visit.aggregate({
+      where: {
+        userId: userId,
+        checkinAt: {
+          gte: startOfMonth,
+          lte: endOfMonth,
+        },
+        score: {
+          not: null,
+        },
+      },
+      _avg: {
+        score: true,
+      },
+    });
+
+    const salesThisMonth = Number(ordersSum._sum.totalTtc || 0);
+    const averageOrderValue = ordersThisMonth > 0 ? salesThisMonth / ordersThisMonth : 0;
+    const coverage = totalOutlets > 0 ? (visitedOutlets.length / totalOutlets) * 100 : 0;
+    const strikeRate = visitsThisMonth > 0 ? (ordersThisMonth / visitsThisMonth) * 100 : 0;
+    const perfectStoreScore = visitScores._avg.score || 0;
+
+    return {
+      coverage: Math.round(coverage * 10) / 10,
+      strikeRate: Math.round(strikeRate * 10) / 10,
+      visitsThisMonth,
+      salesThisMonth: Math.round(salesThisMonth),
+      perfectStoreScore: Math.round(perfectStoreScore * 10) / 10,
+      totalOutlets,
+      visitedOutlets: visitedOutlets.length,
+      ordersThisMonth,
+      averageOrderValue: Math.round(averageOrderValue),
+    };
+  }
+
   /**
    * Mapper un utilisateur Prisma vers l'entité User
    */
@@ -91,6 +291,9 @@ export class UsersService {
       password: prismaUser.passwordHash,
       firstName: prismaUser.firstName,
       lastName: prismaUser.lastName,
+      role: prismaUser.role,
+      status: prismaUser.status,
+      territoryId: prismaUser.territoryId,
       lockedUntil: prismaUser.lockedUntil ?? undefined,
       resetToken: prismaUser.resetToken ?? undefined,
       resetTokenExpiry: prismaUser.resetTokenExpiry ?? undefined,

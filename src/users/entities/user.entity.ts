@@ -4,6 +4,9 @@ export class User {
   password: string;
   firstName: string;
   lastName: string;
+  role: string;
+  status: string;
+  territoryId?: string;
 
   // Protection contre les tentatives de connexion (SCRUM-39)
   lockedUntil?: Date;

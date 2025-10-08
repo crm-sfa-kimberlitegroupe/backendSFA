@@ -1,32 +1,35 @@
 import {
   IsEmail,
   IsString,
+  IsOptional,
   MinLength,
   IsEnum,
-  IsOptional,
   IsDateString,
 } from 'class-validator';
-import { RoleEnum } from '../types';
 
-export class CreateUserDto {
+export class UpdateUserDto {
+  @IsOptional()
   @IsEmail({}, { message: 'Email invalide' })
-  email: string;
+  email?: string;
 
+  @IsOptional()
   @IsString()
   @MinLength(6, {
     message: 'Le mot de passe doit contenir au moins 6 caractères',
   })
-  password: string;
-
-  @IsString()
-  firstName: string;
-
-  @IsString()
-  lastName: string;
+  password?: string;
 
   @IsOptional()
-  @IsEnum(RoleEnum)
-  role?: RoleEnum;
+  @IsString()
+  firstName?: string;
+
+  @IsOptional()
+  @IsString()
+  lastName?: string;
+
+  @IsOptional()
+  @IsEnum(['REP', 'SUP', 'ADMIN'], { message: 'Rôle invalide' })
+  role?: string;
 
   @IsOptional()
   @IsString()

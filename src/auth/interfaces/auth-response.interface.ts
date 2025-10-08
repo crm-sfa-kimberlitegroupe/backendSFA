@@ -5,6 +5,9 @@ export interface UserResponse {
   email: string;
   firstName: string;
   lastName: string;
+  role: string;
+  isActive: boolean;
+  territory?: string;
 }
 
 //Structure de réponse d'authentification standard

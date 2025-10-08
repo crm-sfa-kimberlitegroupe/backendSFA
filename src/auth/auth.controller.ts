@@ -57,16 +57,8 @@ export class AuthController {
 
   @UseGuards(JwtAuthGuard)
   @Get('profile')
-  getProfile(@GetUser() user: RequestUser): ProfileResponse {
-    return {
-      success: true,
-      user: {
-        id: user.userId,
-        email: user.email,
-        firstName: '',
-        lastName: '',
-      },
-    };
+  async getProfile(@GetUser() user: RequestUser): Promise<ProfileResponse> {
+    return await this.authService.getProfile(user.userId);
   }
 
   // ========================================

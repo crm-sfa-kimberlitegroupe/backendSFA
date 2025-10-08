@@ -618,6 +618,21 @@ export class AuthService {
   }
 
   /**
+   * Récupérer le profil complet de l'utilisateur
+   */
+  async getProfile(userId: string): Promise<{ success: boolean; user: UserResponse }> {
+    const user = await this.usersService.findById(userId);
+    if (!user) {
+      throw new UnauthorizedException('Utilisateur non trouvé');
+    }
+
+    return {
+      success: true,
+      user: this.mapToUserResponse(user),
+    };
+  }
+
+  /**
    * Mapper l'entité utilisateur au format de réponse
    */
   private mapToUserResponse(user: User): UserResponse {
@@ -626,6 +641,9 @@ export class AuthService {
       email: user.email,
       firstName: user.firstName,
       lastName: user.lastName,
+      role: user.role,
+      isActive: user.status === 'ACTIVE',
+      territory: user.territoryId,
     };
   }
 }

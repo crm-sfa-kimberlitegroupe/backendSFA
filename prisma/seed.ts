@@ -54,13 +54,131 @@ async function main() {
       territoryId: defaultTerritory.id,
     },
   });
+  console.log('✅ Andre user created:', andreUser.email);
 
-  console.log(' Andre user created:', andreUser.email);
+  // Create territories for test users
+  const plateau = await prisma.territory.upsert({
+    where: { code: 'PLATEAU' },
+    update: {},
+    create: {
+      code: 'PLATEAU',
+      name: 'Plateau',
+      level: 'ZONE',
+    },
+  });
 
-  // Add more seed data here as needed
-  // Example: territories, outlets, SKUs, etc.
+  const cocody = await prisma.territory.upsert({
+    where: { code: 'COCODY' },
+    update: {},
+    create: {
+      code: 'COCODY',
+      name: 'Cocody',
+      level: 'ZONE',
+    },
+  });
 
-  console.log(' Seeding completed!');
+  const adjame = await prisma.territory.upsert({
+    where: { code: 'ADJAME' },
+    update: {},
+    create: {
+      code: 'ADJAME',
+      name: 'Adjamé',
+      level: 'ZONE',
+    },
+  });
+
+  console.log('✅ Territories created');
+
+  // Create test users
+  const hashedPasswordTest = await bcrypt.hash('admin123', 10);
+  const adminTest = await prisma.user.upsert({
+    where: { email: 'admin@test.com' },
+    update: {},
+    create: {
+      email: 'admin@test.com',
+      passwordHash: hashedPasswordTest,
+      firstName: 'Admin',
+      lastName: 'Test',
+      role: 'ADMIN',
+      status: 'ACTIVE',
+      territoryId: defaultTerritory.id,
+    },
+  });
+
+  const hashedPasswordManager = await bcrypt.hash('manager123', 10);
+  const managerTest = await prisma.user.upsert({
+    where: { email: 'manager@test.com' },
+    update: {},
+    create: {
+      email: 'manager@test.com',
+      passwordHash: hashedPasswordManager,
+      firstName: 'Manager',
+      lastName: 'Test',
+      role: 'SUP',
+      status: 'ACTIVE',
+      territoryId: defaultTerritory.id,
+    },
+  });
+
+  console.log('✅ Test users created:', adminTest.email, managerTest.email);
+
+  // 3. REP (Vendeur) Users
+  const hashedPasswordRep = await bcrypt.hash('vendeur123', 10);
+
+  const rep1 = await prisma.user.upsert({
+    where: { email: 'jean.kouassi@test.com' },
+    update: {},
+    create: {
+      email: 'jean.kouassi@test.com',
+      passwordHash: hashedPasswordRep,
+      firstName: 'Jean',
+      lastName: 'Kouassi',
+      role: 'REP',
+      status: 'ACTIVE',
+      territoryId: plateau.id,
+    },
+  });
+  console.log('✅ Vendeur 1 created:', rep1.email, '/ Password: vendeur123');
+
+  const rep2 = await prisma.user.upsert({
+    where: { email: 'marie.diallo@test.com' },
+    update: {},
+    create: {
+      email: 'marie.diallo@test.com',
+      passwordHash: hashedPasswordRep,
+      firstName: 'Marie',
+      lastName: 'Diallo',
+      role: 'REP',
+      status: 'ACTIVE',
+      territoryId: cocody.id,
+    },
+  });
+  console.log('✅ Vendeur 2 created:', rep2.email, '/ Password: vendeur123');
+
+  const rep3 = await prisma.user.upsert({
+    where: { email: 'paul.bamba@test.com' },
+    update: {},
+    create: {
+      email: 'paul.bamba@test.com',
+      passwordHash: hashedPasswordRep,
+      firstName: 'Paul',
+      lastName: 'Bamba',
+      role: 'REP',
+      status: 'ACTIVE',
+      territoryId: adjame.id,
+    },
+  });
+  console.log('✅ Vendeur 3 created:', rep3.email, '/ Password: vendeur123');
+
+  console.log('\n🎉 Seeding completed!');
+  console.log('\n📝 Test Accounts:');
+  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+  console.log('👤 ADMIN:   admin@test.com / admin123');
+  console.log('👤 MANAGER: manager@test.com / manager123');
+  console.log('👤 VENDEUR: jean.kouassi@test.com / vendeur123');
+  console.log('👤 VENDEUR: marie.diallo@test.com / vendeur123');
+  console.log('👤 VENDEUR: paul.bamba@test.com / vendeur123');
+  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
 }
 
 main()

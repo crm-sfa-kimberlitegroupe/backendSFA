@@ -50,4 +50,8 @@ export class UpdateUserDto {
   @IsOptional()
   @IsString()
   managerId?: string;
+
+  @IsOptional()
+  @IsString()
+  photoUrl?: string;
 }

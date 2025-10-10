@@ -8,12 +8,16 @@ import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UserPerformanceDto } from './dto/user-performance.dto';
 import { PrismaService } from '../prisma/prisma.service';
+import { CloudinaryService } from '../cloudinary/cloudinary.service';
 import { User as PrismaUser, RoleEnum } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 
 @Injectable()
 export class UsersService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private cloudinaryService: CloudinaryService,
+  ) {}
 
   async create(createUserDto: CreateUserDto): Promise<User> {
     // Vérifier si l'email existe déjà
@@ -163,6 +167,49 @@ export class UsersService {
   }
 
   /**
+   * Upload de photo de profil
+   */
+  async uploadProfilePhoto(
+    userId: string,
+    file: Express.Multer.File,
+  ): Promise<string> {
+    // Vérifier que l'utilisateur existe
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+    });
+
+    if (!user) {
+      throw new NotFoundException('Utilisateur non trouvé');
+    }
+
+    // Supprimer l'ancienne photo si elle existe
+    if (user.photoUrl) {
+      const publicId = this.cloudinaryService.extractPublicId(user.photoUrl);
+      if (publicId) {
+        try {
+          await this.cloudinaryService.deleteImage(publicId);
+        } catch (error) {
+          console.error(
+            "Erreur lors de la suppression de l'ancienne photo:",
+            error,
+          );
+        }
+      }
+    }
+
+    // Upload la nouvelle photo
+    const photoUrl = await this.cloudinaryService.uploadImage(file);
+
+    // Mettre à jour l'utilisateur
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { photoUrl },
+    });
+
+    return photoUrl;
+  }
+
+  /**
    * Récupérer les performances d'un utilisateur
    */
   async getUserPerformance(userId: string): Promise<UserPerformanceDto> {
@@ -178,7 +225,14 @@ export class UsersService {
     // Calculer le début et la fin du mois en cours
     const now = new Date();
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-    const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+    const endOfMonth = new Date(
+      now.getFullYear(),
+      now.getMonth() + 1,
+      0,
+      23,
+      59,
+      59,
+    );
 
     // Compter le nombre total de PDV dans le territoire de l'utilisateur
     const totalOutlets = await this.prisma.outlet.count({
@@ -263,9 +317,12 @@ export class UsersService {
     });
 
     const salesThisMonth = Number(ordersSum._sum.totalTtc || 0);
-    const averageOrderValue = ordersThisMonth > 0 ? salesThisMonth / ordersThisMonth : 0;
-    const coverage = totalOutlets > 0 ? (visitedOutlets.length / totalOutlets) * 100 : 0;
-    const strikeRate = visitsThisMonth > 0 ? (ordersThisMonth / visitsThisMonth) * 100 : 0;
+    const averageOrderValue =
+      ordersThisMonth > 0 ? salesThisMonth / ordersThisMonth : 0;
+    const coverage =
+      totalOutlets > 0 ? (visitedOutlets.length / totalOutlets) * 100 : 0;
+    const strikeRate =
+      visitsThisMonth > 0 ? (ordersThisMonth / visitsThisMonth) * 100 : 0;
     const perfectStoreScore = visitScores._avg.score || 0;
 
     return {
@@ -294,6 +351,7 @@ export class UsersService {
       role: prismaUser.role,
       status: prismaUser.status,
       territoryId: prismaUser.territoryId,
+      photoUrl: prismaUser.photoUrl ?? undefined,
       lockedUntil: prismaUser.lockedUntil ?? undefined,
       resetToken: prismaUser.resetToken ?? undefined,
       resetTokenExpiry: prismaUser.resetTokenExpiry ?? undefined,

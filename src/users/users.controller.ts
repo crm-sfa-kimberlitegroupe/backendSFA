@@ -9,7 +9,11 @@ import {
   UseGuards,
   HttpCode,
   HttpStatus,
+  UseInterceptors,
+  UploadedFile,
+  BadRequestException,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
@@ -109,6 +113,45 @@ export class UsersController {
       success: true,
       data: performance,
       message: 'Performances récupérées avec succès',
+    };
+  }
+
+  /**
+   * Upload de photo de profil
+   */
+  @Post(':id/upload-photo')
+  @UseInterceptors(FileInterceptor('photo'))
+  async uploadPhoto(
+    @Param('id') id: string,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    if (!file) {
+      throw new BadRequestException('Aucun fichier fourni');
+    }
+
+    // Vérifier le type de fichier
+    const allowedMimeTypes = [
+      'image/jpeg',
+      'image/png',
+      'image/jpg',
+      'image/webp',
+    ];
+    if (!allowedMimeTypes.includes(file.mimetype)) {
+      throw new BadRequestException(
+        'Type de fichier non supporté. Utilisez JPG, PNG ou WEBP',
+      );
+    }
+
+    // Vérifier la taille (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      throw new BadRequestException('Le fichier est trop volumineux (max 5MB)');
+    }
+
+    const photoUrl = await this.usersService.uploadProfilePhoto(id, file);
+    return {
+      success: true,
+      data: { photoUrl },
+      message: 'Photo de profil mise à jour avec succès',
     };
   }
 }

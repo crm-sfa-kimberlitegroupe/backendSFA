@@ -8,6 +8,9 @@ export class User {
   status: string;
   territoryId?: string;
 
+  // Photo de profil (Cloudinary)
+  photoUrl?: string;
+
   // Protection contre les tentatives de connexion (SCRUM-39)
   lockedUntil?: Date;
 

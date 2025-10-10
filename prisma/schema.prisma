@@ -109,6 +109,9 @@ model User {
   passwordHash String           @map("password_hash")
   lastLogin    DateTime?        @map("last_login") @db.Timestamptz
   
+  // Photo de profil (Cloudinary)
+  photoUrl     String?          @map("photo_url")
+  
   // Protection contre les tentatives de connexion (SCRUM-39)
   lockedUntil         DateTime? @map("locked_until") @db.Timestamptz
   

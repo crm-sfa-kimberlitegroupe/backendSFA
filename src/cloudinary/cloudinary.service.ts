@@ -40,7 +40,16 @@ export class CloudinaryService {
       fileName: file.originalname,
       fileSize: file.size,
       mimeType: file.mimetype,
+      hasBuffer: !!file.buffer,
+      bufferLength: file.buffer?.length,
     });
+
+    if (!file.buffer) {
+      console.error('❌ No buffer found in file object');
+      throw new Error(
+        'File buffer is missing. Multer must be configured with memoryStorage.',
+      );
+    }
 
     return new Promise((resolve, reject) => {
       const uploadFolder =
@@ -63,7 +72,11 @@ export class CloudinaryService {
           result: UploadApiResponse | undefined,
         ) => {
           if (error) {
-            console.error('❌ Cloudinary upload error:', error);
+            console.error('❌ Cloudinary upload error:', {
+              message: error.message,
+              http_code: error.http_code,
+              error: error,
+            });
             // eslint-disable-next-line @typescript-eslint/prefer-promise-reject-errors
             reject(error);
           } else if (result) {

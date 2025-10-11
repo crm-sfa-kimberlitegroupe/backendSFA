@@ -109,6 +109,12 @@ model User {
   passwordHash String           @map("password_hash")
   lastLogin    DateTime?        @map("last_login") @db.Timestamptz
   
+  // Informations supplémentaires
+  phone        String?
+  employeeId   String?          @map("employee_id")
+  hireDate     DateTime?        @map("hire_date") @db.Date
+  managerId    String?          @map("manager_id") @db.Uuid
+  
   // Photo de profil (Cloudinary)
   photoUrl     String?          @map("photo_url")
   
@@ -132,6 +138,8 @@ model User {
 
   // Relations
   territory           Territory      @relation(fields: [territoryId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  manager             User?          @relation("UserManager", fields: [managerId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  subordinates        User[]         @relation("UserManager")
   routePlans          RoutePlan[]
   visits              Visit[]
   orders              Order[]
@@ -144,6 +152,7 @@ model User {
   refreshTokens       RefreshToken[]
 
   @@index([territoryId])
+  @@index([managerId])
   @@index([role])
   @@map("user")
 }

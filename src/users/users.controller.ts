@@ -38,6 +38,19 @@ export class UsersController {
   }
 
   /**
+   * Récupérer les managers (SUP et ADMIN)
+   */
+  @Get('managers/list')
+  async getManagers() {
+    const managers = await this.usersService.getManagers();
+    return {
+      success: true,
+      data: managers,
+      message: 'Managers récupérés avec succès',
+    };
+  }
+
+  /**
    * Récupérer un utilisateur par ID
    */
   @Get(':id')

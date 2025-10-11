@@ -8,6 +8,12 @@ export class User {
   status: string;
   territoryId?: string;
 
+  // Informations supplémentaires
+  phone?: string;
+  employeeId?: string;
+  hireDate?: Date;
+  managerId?: string;
+
   // Photo de profil (Cloudinary)
   photoUrl?: string;
 

@@ -8,6 +8,12 @@ export interface UserResponse {
   role: string;
   isActive: boolean;
   territory?: string;
+  territoryName?: string;
+  photoUrl?: string;
+  phone?: string;
+  employeeId?: string;
+  hireDate?: string;
+  manager?: string;
 }
 
 //Structure de réponse d'authentification standard

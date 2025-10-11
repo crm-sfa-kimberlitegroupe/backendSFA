@@ -87,6 +87,35 @@ export class UsersService {
     return users.map((user) => this.mapPrismaUserToEntity(user));
   }
 
+  async getManagers(): Promise<
+    Array<{
+      id: string;
+      firstName: string;
+      lastName: string;
+      role: string;
+    }>
+  > {
+    const managers = await this.prisma.user.findMany({
+      where: {
+        role: {
+          in: ['SUP', 'ADMIN'],
+        },
+        status: 'ACTIVE',
+      },
+      select: {
+        id: true,
+        firstName: true,
+        lastName: true,
+        role: true,
+      },
+      orderBy: {
+        firstName: 'asc',
+      },
+    });
+
+    return managers;
+  }
+
   async update(id: string, updateUserDto: UpdateUserDto): Promise<User> {
     // Vérifier si l'utilisateur existe
     const existingUser = await this.prisma.user.findUnique({
@@ -351,6 +380,10 @@ export class UsersService {
       role: prismaUser.role,
       status: prismaUser.status,
       territoryId: prismaUser.territoryId,
+      phone: (prismaUser as any).phone ?? undefined,
+      employeeId: (prismaUser as any).employeeId ?? undefined,
+      hireDate: (prismaUser as any).hireDate ?? undefined,
+      managerId: (prismaUser as any).managerId ?? undefined,
       photoUrl: prismaUser.photoUrl ?? undefined,
       lockedUntil: prismaUser.lockedUntil ?? undefined,
       resetToken: prismaUser.resetToken ?? undefined,

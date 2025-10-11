@@ -620,23 +620,39 @@ export class AuthService {
   /**
    * Récupérer le profil complet de l'utilisateur
    */
-  async getProfile(userId: string): Promise<{ success: boolean; user: UserResponse }> {
+  async getProfile(
+    userId: string,
+  ): Promise<{ success: boolean; user: UserResponse }> {
     const user = await this.usersService.findById(userId);
     if (!user) {
       throw new UnauthorizedException('Utilisateur non trouvé');
     }
 
+    // Récupérer les informations du territoire et du manager
+    const userWithRelations = await this.prisma.user.findUnique({
+      where: { id: userId },
+      include: {
+        territory: true,
+        manager: {
+          select: {
+            firstName: true,
+            lastName: true,
+          },
+        },
+      },
+    });
+
     return {
       success: true,
-      user: this.mapToUserResponse(user),
+      user: this.mapToUserResponse(user, userWithRelations),
     };
   }
 
   /**
    * Mapper l'entité utilisateur au format de réponse
    */
-  private mapToUserResponse(user: User): UserResponse {
-    return {
+  private mapToUserResponse(user: User, relations?: any): UserResponse {
+    const response: UserResponse = {
       id: user.id,
       email: user.email,
       firstName: user.firstName,
@@ -644,6 +660,22 @@ export class AuthService {
       role: user.role,
       isActive: user.status === 'ACTIVE',
       territory: user.territoryId,
+      photoUrl: user.photoUrl,
+      phone: user.phone,
+      employeeId: user.employeeId,
+      hireDate: user.hireDate?.toISOString().split('T')[0],
     };
+
+    // Ajouter le nom du territoire si disponible
+    if (relations?.territory) {
+      response.territoryName = relations.territory.name;
+    }
+
+    // Ajouter le nom du manager si disponible
+    if (relations?.manager) {
+      response.manager = `${relations.manager.firstName} ${relations.manager.lastName}`;
+    }
+
+    return response;
   }
 }

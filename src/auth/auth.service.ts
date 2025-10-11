@@ -58,7 +58,22 @@ export class AuthService {
       user.id,
       user.email,
     );
-    const userResponse = this.mapToUserResponse(user);
+
+    // Récupérer les informations du territoire et du manager
+    const userWithRelations = await this.prisma.user.findUnique({
+      where: { id: user.id },
+      include: {
+        territory: true,
+        manager: {
+          select: {
+            firstName: true,
+            lastName: true,
+          },
+        },
+      },
+    });
+
+    const userResponse = this.mapToUserResponse(user, userWithRelations);
 
     return {
       success: true,
@@ -152,7 +167,22 @@ export class AuthService {
       ip,
       userAgent,
     );
-    const userResponse = this.mapToUserResponse(user);
+
+    // Récupérer les informations du territoire et du manager
+    const userWithRelations = await this.prisma.user.findUnique({
+      where: { id: user.id },
+      include: {
+        territory: true,
+        manager: {
+          select: {
+            firstName: true,
+            lastName: true,
+          },
+        },
+      },
+    });
+
+    const userResponse = this.mapToUserResponse(user, userWithRelations);
 
     return {
       success: true,
@@ -651,7 +681,13 @@ export class AuthService {
   /**
    * Mapper l'entité utilisateur au format de réponse
    */
-  private mapToUserResponse(user: User, relations?: any): UserResponse {
+  private mapToUserResponse(
+    user: User,
+    relations?: {
+      territory?: { name: string } | null;
+      manager?: { firstName: string; lastName: string } | null;
+    } | null,
+  ): UserResponse {
     const response: UserResponse = {
       id: user.id,
       email: user.email,
@@ -659,16 +695,18 @@ export class AuthService {
       lastName: user.lastName,
       role: user.role,
       isActive: user.status === 'ACTIVE',
-      territory: user.territoryId,
       photoUrl: user.photoUrl,
       phone: user.phone,
       employeeId: user.employeeId,
       hireDate: user.hireDate?.toISOString().split('T')[0],
     };
 
-    // Ajouter le nom du territoire si disponible
+    // Ajouter le nom du territoire si disponible, sinon l'ID
     if (relations?.territory) {
+      response.territory = relations.territory.name;
       response.territoryName = relations.territory.name;
+    } else {
+      response.territory = user.territoryId;
     }
 
     // Ajouter le nom du manager si disponible

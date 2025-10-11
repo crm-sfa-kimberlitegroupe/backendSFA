@@ -82,6 +82,62 @@ export class UsersService {
     return this.mapPrismaUserToEntity(user);
   }
 
+  async findByIdWithRelations(id: string): Promise<{
+    id: string;
+    email: string;
+    firstName: string;
+    lastName: string;
+    role: string;
+    isActive: boolean;
+    phone: string | null;
+    photoUrl: string | null;
+    employeeId: string | null;
+    hireDate: string | null;
+    territory: string | null;
+    territoryName: string | null;
+    manager: string | null;
+  }> {
+    const user = await this.prisma.user.findUnique({
+      where: { id },
+      include: {
+        territory: {
+          select: {
+            name: true,
+          },
+        },
+        manager: {
+          select: {
+            firstName: true,
+            lastName: true,
+          },
+        },
+      },
+    });
+
+    if (!user) {
+      throw new NotFoundException('Utilisateur non trouvé');
+    }
+
+    // Mapper les données avec les relations
+    return {
+      id: user.id,
+      email: user.email,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      role: user.role,
+      isActive: user.status === 'ACTIVE',
+      phone: user.phone || null,
+      photoUrl: user.photoUrl || null,
+      employeeId: user.employeeId || null,
+      hireDate: user.hireDate?.toISOString().split('T')[0] || null,
+      territory: user.territory?.name || null,
+      territoryName: user.territory?.name || null,
+      manager: user.manager
+        ? `${user.manager.firstName} ${user.manager.lastName}`
+        : null,
+    };
+  }
+
   async findAll(): Promise<User[]> {
     const users = await this.prisma.user.findMany();
     return users.map((user) => this.mapPrismaUserToEntity(user));

@@ -13,12 +13,6 @@ export class CloudinaryService {
     const apiKey = this.configService.get<string>('CLOUDINARY_API_KEY');
     const apiSecret = this.configService.get<string>('CLOUDINARY_API_SECRET');
 
-    console.log('🔧 Cloudinary Configuration:', {
-      cloudName: cloudName ? '✓ Set' : '✗ Missing',
-      apiKey: apiKey ? '✓ Set' : '✗ Missing',
-      apiSecret: apiSecret ? '✓ Set' : '✗ Missing',
-    });
-
     cloudinary.config({
       cloud_name: cloudName,
       api_key: apiKey,
@@ -26,26 +20,13 @@ export class CloudinaryService {
     });
   }
 
-  /**
-   * Upload une image vers Cloudinary
-   * @param file - Le fichier à uploader (buffer ou stream)
-   * @param folder - Le dossier dans Cloudinary
-   * @returns L'URL sécurisée de l'image uploadée
-   */
   async uploadImage(
     file: Express.Multer.File,
     folder?: string,
   ): Promise<string> {
-    console.log('📤 Starting upload to Cloudinary:', {
-      fileName: file.originalname,
-      fileSize: file.size,
-      mimeType: file.mimetype,
-      hasBuffer: !!file.buffer,
-      bufferLength: file.buffer?.length,
-    });
+    console.log(' Starting upload to Cloudinary');
 
     if (!file.buffer) {
-      console.error('❌ No buffer found in file object');
       throw new Error(
         'File buffer is missing. Multer must be configured with memoryStorage.',
       );
@@ -55,8 +36,6 @@ export class CloudinaryService {
       const uploadFolder =
         folder ||
         this.configService.get<string>('CLOUDINARY_FOLDER', 'sfa-profiles');
-
-      console.log('📁 Upload folder:', uploadFolder);
 
       const uploadStream = cloudinary.uploader.upload_stream(
         {
@@ -72,18 +51,14 @@ export class CloudinaryService {
           result: UploadApiResponse | undefined,
         ) => {
           if (error) {
-            console.error('❌ Cloudinary upload error:', {
-              message: error.message,
-              http_code: error.http_code,
-              error: error,
-            });
+            console.error(' Cloudinary upload error:');
             // eslint-disable-next-line @typescript-eslint/prefer-promise-reject-errors
             reject(error);
           } else if (result) {
-            console.log('✅ Upload successful:', result.secure_url);
+            console.log(' Upload successful:');
             resolve(result.secure_url);
           } else {
-            console.error('❌ Upload failed without error');
+            console.error(' Upload failed without error');
             reject(new Error('Upload failed without error'));
           }
         },
@@ -101,7 +76,7 @@ export class CloudinaryService {
     try {
       await cloudinary.uploader.destroy(publicId);
     } catch (error) {
-      console.error('Error deleting image from Cloudinary:', error);
+      console.error('Error deleting image from Cloudinary');
       throw error;
     }
   }

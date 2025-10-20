@@ -1,4 +1,10 @@
-import { IsEmail, IsNotEmpty, IsString, IsOptional, Length } from 'class-validator';
+import {
+  IsEmail,
+  IsNotEmpty,
+  IsString,
+  IsOptional,
+  Length,
+} from 'class-validator';
 
 /**
  * DTO pour la connexion avec 2FA

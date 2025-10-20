@@ -89,19 +89,48 @@ async function main() {
 
   console.log('✅ Territories created');
 
-  // Create test users
+  // Create admins for each territory
   const hashedPasswordTest = await bcrypt.hash('admin123', 10);
-  const adminTest = await prisma.user.upsert({
-    where: { email: 'admin@test.com' },
+  
+  const adminPlateau = await prisma.user.upsert({
+    where: { email: 'admin.plateau@test.com' },
     update: {},
     create: {
-      email: 'admin@test.com',
+      email: 'admin.plateau@test.com',
       passwordHash: hashedPasswordTest,
       firstName: 'Admin',
-      lastName: 'Test',
+      lastName: 'Plateau',
       role: 'ADMIN',
       status: 'ACTIVE',
-      territoryId: defaultTerritory.id,
+      territoryId: plateau.id,
+    },
+  });
+
+  const adminCocody = await prisma.user.upsert({
+    where: { email: 'admin.cocody@test.com' },
+    update: {},
+    create: {
+      email: 'admin.cocody@test.com',
+      passwordHash: hashedPasswordTest,
+      firstName: 'Admin',
+      lastName: 'Cocody',
+      role: 'ADMIN',
+      status: 'ACTIVE',
+      territoryId: cocody.id,
+    },
+  });
+
+  const adminAdjame = await prisma.user.upsert({
+    where: { email: 'admin.adjame@test.com' },
+    update: {},
+    create: {
+      email: 'admin.adjame@test.com',
+      passwordHash: hashedPasswordTest,
+      firstName: 'Admin',
+      lastName: 'Adjamé',
+      role: 'ADMIN',
+      status: 'ACTIVE',
+      territoryId: adjame.id,
     },
   });
 
@@ -120,7 +149,8 @@ async function main() {
     },
   });
 
-  console.log('✅ Test users created:', adminTest.email, managerTest.email);
+  console.log('✅ Admins created:', adminPlateau.email, adminCocody.email, adminAdjame.email);
+  console.log('✅ Manager created:', managerTest.email);
 
   // 3. REP (Vendeur) Users
   const hashedPasswordRep = await bcrypt.hash('vendeur123', 10);
@@ -173,11 +203,13 @@ async function main() {
   console.log('\n🎉 Seeding completed!');
   console.log('\n📝 Test Accounts:');
   console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-  console.log('👤 ADMIN:   admin@test.com / admin123');
-  console.log('👤 MANAGER: manager@test.com / manager123');
-  console.log('👤 VENDEUR: jean.kouassi@test.com / vendeur123');
-  console.log('👤 VENDEUR: marie.diallo@test.com / vendeur123');
-  console.log('👤 VENDEUR: paul.bamba@test.com / vendeur123');
+  console.log('👤 ADMIN PLATEAU:  admin.plateau@test.com / admin123');
+  console.log('👤 ADMIN COCODY:   admin.cocody@test.com / admin123');
+  console.log('👤 ADMIN ADJAMÉ:   admin.adjame@test.com / admin123');
+  console.log('👤 MANAGER:        manager@test.com / manager123');
+  console.log('👤 VENDEUR PLATEAU: jean.kouassi@test.com / vendeur123');
+  console.log('👤 VENDEUR COCODY:  marie.diallo@test.com / vendeur123');
+  console.log('👤 VENDEUR ADJAMÉ:  paul.bamba@test.com / vendeur123');
   console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
 }
 

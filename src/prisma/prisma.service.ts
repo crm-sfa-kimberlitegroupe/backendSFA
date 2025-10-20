@@ -9,10 +9,11 @@ export class PrismaService
   constructor() {
     super({
       // Optimisation: Réduire les logs en production
-      log: process.env.NODE_ENV === 'production' 
-        ? ['error'] 
-        : ['query', 'error', 'warn'],
-      
+      log:
+        process.env.NODE_ENV === 'production'
+          ? ['error']
+          : ['query', 'error', 'warn'],
+
       // Optimisation: Configuration du connection pool
       datasources: {
         db: {
@@ -25,7 +26,7 @@ export class PrismaService
   async onModuleInit() {
     // eslint-disable-next-line @typescript-eslint/no-unsafe-call
     await this.$connect();
-    
+
     // Optimisation: Timeout pour les requêtes longues
     await this.$executeRaw`SET statement_timeout = '10s'`;
   }
@@ -34,7 +35,7 @@ export class PrismaService
     // eslint-disable-next-line @typescript-eslint/no-unsafe-call
     await this.$disconnect();
   }
-  
+
   // Optimisation: Méthode pour nettoyer les connexions inactives
   async cleanupConnections() {
     await this.$disconnect();

@@ -8,6 +8,7 @@ export interface UserResponse {
   role: string;
   isActive: boolean;
   territory?: string;
+  territoryId?: string; // ID du territoire de l'utilisateur
   territoryName?: string;
   photoUrl?: string;
   phone?: string;

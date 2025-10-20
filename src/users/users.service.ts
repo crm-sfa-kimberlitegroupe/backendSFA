@@ -9,7 +9,7 @@ import { UpdateUserDto } from './dto/update-user.dto';
 import { UserPerformanceDto } from './dto/user-performance.dto';
 import { PrismaService } from '../prisma/prisma.service';
 import { CloudinaryService } from '../cloudinary/cloudinary.service';
-import { User as PrismaUser, RoleEnum } from '@prisma/client';
+import { User as PrismaUser, RoleEnum, Prisma } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 
 @Injectable()
@@ -19,7 +19,10 @@ export class UsersService {
     private cloudinaryService: CloudinaryService,
   ) {}
 
-  async create(createUserDto: CreateUserDto): Promise<User> {
+  async create(
+    createUserDto: CreateUserDto,
+    creatorId?: string,
+  ): Promise<User> {
     // Vérifier si l'email existe déjà
     const existingUser = await this.prisma.user.findUnique({
       where: { email: createUserDto.email },
@@ -32,13 +35,34 @@ export class UsersService {
     // Hasher le mot de passe
     const hashedPassword = await bcrypt.hash(createUserDto.password, 10);
 
-    // Get default territory
-    const defaultTerritory = await this.prisma.territory.findFirst({
-      where: { code: 'DEFAULT' },
-    });
+    // Déterminer le territoire du nouvel utilisateur
+    let territoryId = createUserDto.territoryId;
 
-    if (!defaultTerritory) {
-      throw new Error('Default territory not found. Please run seed script.');
+    // Si un creatorId est fourni et qu'aucun territoire n'est spécifié,
+    // hériter du territoire du créateur (admin)
+    if (!territoryId && creatorId) {
+      const creator = await this.prisma.user.findUnique({
+        where: { id: creatorId },
+        select: { territoryId: true },
+      });
+
+      if (creator) {
+        // Le vendeur hérite automatiquement du territoire de l'admin
+        territoryId = creator.territoryId;
+      }
+    }
+
+    // Si toujours pas de territoire, utiliser le territoire par défaut
+    if (!territoryId) {
+      const defaultTerritory = await this.prisma.territory.findFirst({
+        where: { code: 'DEFAULT' },
+      });
+
+      if (!defaultTerritory) {
+        throw new Error('Default territory not found. Please run seed script.');
+      }
+
+      territoryId = defaultTerritory.id;
     }
 
     // Créer le nouvel utilisateur avec Prisma
@@ -50,7 +74,7 @@ export class UsersService {
         lastName: createUserDto.lastName,
         role: (createUserDto.role as RoleEnum) || 'REP', // Rôle par défaut: REP
         status: 'ACTIVE',
-        territoryId: createUserDto.territoryId || defaultTerritory.id,
+        territoryId: territoryId,
       },
     });
 
@@ -194,14 +218,15 @@ export class UsersService {
     }
 
     // Préparer les données à mettre à jour
-    const updateData: any = {
-      ...updateUserDto,
+    const { password, role, ...otherData } = updateUserDto;
+    const updateData: Prisma.UserUpdateInput = {
+      ...otherData,
+      ...(role && { role: role as RoleEnum }),
     };
 
     // Si le mot de passe est fourni, le hasher
-    if (updateUserDto.password) {
-      updateData.passwordHash = await bcrypt.hash(updateUserDto.password, 10);
-      delete updateData.password;
+    if (password) {
+      updateData.passwordHash = await bcrypt.hash(password, 10);
     }
 
     // Mettre à jour l'utilisateur
@@ -436,10 +461,10 @@ export class UsersService {
       role: prismaUser.role,
       status: prismaUser.status,
       territoryId: prismaUser.territoryId,
-      phone: (prismaUser as any).phone ?? undefined,
-      employeeId: (prismaUser as any).employeeId ?? undefined,
-      hireDate: (prismaUser as any).hireDate ?? undefined,
-      managerId: (prismaUser as any).managerId ?? undefined,
+      phone: prismaUser.phone ?? undefined,
+      employeeId: prismaUser.employeeId ?? undefined,
+      hireDate: prismaUser.hireDate ?? undefined,
+      managerId: prismaUser.managerId ?? undefined,
       photoUrl: prismaUser.photoUrl ?? undefined,
       lockedUntil: prismaUser.lockedUntil ?? undefined,
       resetToken: prismaUser.resetToken ?? undefined,

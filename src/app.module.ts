@@ -7,6 +7,7 @@ import { UsersModule } from './users/users.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { TerritoriesModule } from './territories/territories.module';
 import { OutletsModule } from './outlets/outlets.module';
+import { RoutesModule } from './routes/routes.module';
 
 @Module({
   imports: [
@@ -19,6 +20,7 @@ import { OutletsModule } from './outlets/outlets.module';
     UsersModule,
     TerritoriesModule,
     OutletsModule,
+    RoutesModule,
   ],
   controllers: [AppController],
   providers: [AppService],

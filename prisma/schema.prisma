@@ -89,26 +89,30 @@ model Territory {
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
 
   // Relations
-  parent     Territory?  @relation("TerritoryHierarchy", fields: [parentId], references: [id], onDelete: SetNull, onUpdate: Cascade)
-  children   Territory[] @relation("TerritoryHierarchy")
-  users      User[]
-  outlets    Outlet[]
+  parent            Territory?  @relation("TerritoryHierarchy", fields: [parentId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  children          Territory[] @relation("TerritoryHierarchy")
+  users             User[]      @relation("UserTerritory")
+  assignedUsers     User[]      @relation("UserAssignedSector")
+  outletsTerritory  Outlet[]    @relation("OutletTerritory")
+  outletsSector     Outlet[]    @relation("OutletSector")
+  routePlans        RoutePlan[] @relation("RoutePlanSector")
 
   @@index([parentId])
   @@map("territory")
 }
 
 model User {
-  id           String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  email        String           @unique
-  firstName    String           @map("first_name")
-  lastName     String           @map("last_name")
-  role         RoleEnum
-  status       UserStatusEnum   @default(ACTIVE)
-  territoryId  String           @map("territory_id") @db.Uuid
-  passwordHash String           @map("password_hash")
-  lastLogin    DateTime?        @map("last_login") @db.Timestamptz
-  
+  id                String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email             String           @unique
+  firstName         String           @map("first_name")
+  lastName          String           @map("last_name")
+  role              RoleEnum
+  status            UserStatusEnum   @default(ACTIVE)
+  territoryId       String           @map("territory_id") @db.Uuid
+  assignedSectorId  String?          @map("assigned_sector_id") @db.Uuid // Secteur assigné au vendeur
+  passwordHash      String           @map("password_hash")
+  lastLogin         DateTime?        @map("last_login") @db.Timestamptz
+
   // Informations supplémentaires
   phone        String?
   employeeId   String?          @map("employee_id")
@@ -137,7 +141,8 @@ model User {
   updatedAt    DateTime         @updatedAt @map("updated_at") @db.Timestamptz
 
   // Relations
-  territory           Territory      @relation(fields: [territoryId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  territory           Territory      @relation("UserTerritory", fields: [territoryId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  assignedSector      Territory?     @relation("UserAssignedSector", fields: [assignedSectorId], references: [id], onDelete: SetNull, onUpdate: Cascade)
   manager             User?          @relation("UserManager", fields: [managerId], references: [id], onDelete: SetNull, onUpdate: Cascade)
   subordinates        User[]         @relation("UserManager")
   routePlans          RoutePlan[]
@@ -152,6 +157,7 @@ model User {
   refreshTokens       RefreshToken[]
 
   @@index([territoryId])
+  @@index([assignedSectorId])
   @@index([managerId])
   @@index([role])
   @@map("user")
@@ -173,6 +179,7 @@ model Outlet {
   geom               Unsupported("geography(POINT, 4326)")?
   openHours          Json?             @map("open_hours")
   territoryId        String            @map("territory_id") @db.Uuid
+  sectorId           String?           @map("sector_id") @db.Uuid // Secteur spécifique dans le territoire
   status             OutletStatusEnum  @default(PENDING)
   proposedBy         String?           @map("proposed_by") @db.Uuid
   validatedBy        String?           @map("validated_by") @db.Uuid
@@ -184,7 +191,8 @@ model Outlet {
   updatedAt          DateTime          @updatedAt @map("updated_at") @db.Timestamptz
 
   // Relations
-  territory     Territory    @relation(fields: [territoryId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  territory     Territory    @relation("OutletTerritory", fields: [territoryId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  sector        Territory?   @relation("OutletSector", fields: [sectorId], references: [id], onDelete: SetNull, onUpdate: Cascade)
   proposer      User?        @relation("OutletProposer", fields: [proposedBy], references: [id], onDelete: SetNull, onUpdate: Cascade)
   validator     User?        @relation("OutletValidator", fields: [validatedBy], references: [id], onDelete: SetNull, onUpdate: Cascade)
   routeStops    RouteStop[]
@@ -194,6 +202,7 @@ model Outlet {
   tasks         Task[]
 
   @@index([territoryId])
+  @@index([sectorId])
   @@index([channel])
   @@index([segment])
   @@index([status])
@@ -207,6 +216,7 @@ model Outlet {
 model RoutePlan {
   id          String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   userId      String           @map("user_id") @db.Uuid
+  sectorId    String?          @map("sector_id") @db.Uuid
   date        DateTime         @db.Date
   status      RouteStatusEnum  @default(PLANNED)
   isOffRoute  Boolean          @default(false) @map("is_off_route")
@@ -215,10 +225,12 @@ model RoutePlan {
   updatedAt   DateTime         @updatedAt @map("updated_at") @db.Timestamptz
 
   // Relations
-  user       User         @relation(fields: [userId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  user       User        @relation(fields: [userId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  sector     Territory?  @relation("RoutePlanSector", fields: [sectorId], references: [id], onDelete: SetNull, onUpdate: Cascade)
   routeStops RouteStop[]
 
   @@index([userId])
+  @@index([sectorId])
   @@index([date])
   @@map("route_plan")
 }
@@ -245,9 +257,9 @@ model RouteStop {
   @@map("route_stop")
 }
 
-// ========================================
+// =====================================
 // VISITES & MERCHANDISING
-// ========================================
+// =====================================
 
 model Visit {
   id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid

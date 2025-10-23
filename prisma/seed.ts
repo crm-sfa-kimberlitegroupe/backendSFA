@@ -89,9 +89,45 @@ async function main() {
 
   console.log('✅ Territories created');
 
+  // Create sectors for each zone
+  const plateauSector = await prisma.territory.upsert({
+    where: { code: 'PLATEAU_SEC_1' },
+    update: {},
+    create: {
+      code: 'PLATEAU_SEC_1',
+      name: 'Plateau - Secteur Centre',
+      level: 'SECTEUR',
+      parentId: plateau.id,
+    },
+  });
+
+  const cocodySector = await prisma.territory.upsert({
+    where: { code: 'COCODY_SEC_1' },
+    update: {},
+    create: {
+      code: 'COCODY_SEC_1',
+      name: 'Cocody - Secteur Est',
+      level: 'SECTEUR',
+      parentId: cocody.id,
+    },
+  });
+
+  const adjameSector = await prisma.territory.upsert({
+    where: { code: 'ADJAME_SEC_1' },
+    update: {},
+    create: {
+      code: 'ADJAME_SEC_1',
+      name: 'Adjamé - Secteur Sud',
+      level: 'SECTEUR',
+      parentId: adjame.id,
+    },
+  });
+
+  console.log('✅ Sectors created');
+
   // Create admins for each territory
   const hashedPasswordTest = await bcrypt.hash('admin123', 10);
-  
+
   const adminPlateau = await prisma.user.upsert({
     where: { email: 'admin.plateau@test.com' },
     update: {},
@@ -149,7 +185,12 @@ async function main() {
     },
   });
 
-  console.log('✅ Admins created:', adminPlateau.email, adminCocody.email, adminAdjame.email);
+  console.log(
+    '✅ Admins created:',
+    adminPlateau.email,
+    adminCocody.email,
+    adminAdjame.email,
+  );
   console.log('✅ Manager created:', managerTest.email);
 
   // 3. REP (Vendeur) Users
@@ -166,6 +207,7 @@ async function main() {
       role: 'REP',
       status: 'ACTIVE',
       territoryId: plateau.id,
+      assignedSectorId: plateauSector.id,
     },
   });
   console.log('✅ Vendeur 1 created:', rep1.email, '/ Password: vendeur123');
@@ -181,6 +223,7 @@ async function main() {
       role: 'REP',
       status: 'ACTIVE',
       territoryId: cocody.id,
+      assignedSectorId: cocodySector.id,
     },
   });
   console.log('✅ Vendeur 2 created:', rep2.email, '/ Password: vendeur123');
@@ -196,9 +239,127 @@ async function main() {
       role: 'REP',
       status: 'ACTIVE',
       territoryId: adjame.id,
+      assignedSectorId: adjameSector.id,
     },
   });
   console.log('✅ Vendeur 3 created:', rep3.email, '/ Password: vendeur123');
+
+  // Create sample outlets and assign to sectors
+  await prisma.outlet.upsert({
+    where: { code: 'PLT-PDV-001' },
+    update: {
+      sectorId: plateauSector.id,
+    },
+    create: {
+      code: 'PLT-PDV-001',
+      name: 'Superette Plateau 1',
+      channel: 'GT',
+      segment: 'A',
+      address: 'Plateau, Abidjan',
+      territoryId: plateau.id,
+      sectorId: plateauSector.id,
+      status: 'APPROVED',
+      lat: 5.325,
+      lng: -4.02,
+    },
+  });
+
+  await prisma.outlet.upsert({
+    where: { code: 'PLT-PDV-002' },
+    update: {
+      sectorId: plateauSector.id,
+    },
+    create: {
+      code: 'PLT-PDV-002',
+      name: 'Boutique Plateau 2',
+      channel: 'PROXI',
+      segment: 'B',
+      address: 'Plateau, Avenue 12',
+      territoryId: plateau.id,
+      sectorId: plateauSector.id,
+      status: 'APPROVED',
+      lat: 5.33,
+      lng: -4.018,
+    },
+  });
+
+  await prisma.outlet.upsert({
+    where: { code: 'COC-PDV-001' },
+    update: {
+      sectorId: cocodySector.id,
+    },
+    create: {
+      code: 'COC-PDV-001',
+      name: 'Superette Cocody 1',
+      channel: 'GT',
+      segment: 'A',
+      address: 'Cocody, Rue des Jardins',
+      territoryId: cocody.id,
+      sectorId: cocodySector.id,
+      status: 'APPROVED',
+      lat: 5.354,
+      lng: -3.986,
+    },
+  });
+
+  await prisma.outlet.upsert({
+    where: { code: 'COC-PDV-002' },
+    update: {
+      sectorId: cocodySector.id,
+    },
+    create: {
+      code: 'COC-PDV-002',
+      name: 'Boutique Cocody 2',
+      channel: 'PROXI',
+      segment: 'B',
+      address: 'Cocody, Rue du Lycée',
+      territoryId: cocody.id,
+      sectorId: cocodySector.id,
+      status: 'APPROVED',
+      lat: 5.348,
+      lng: -3.99,
+    },
+  });
+
+  await prisma.outlet.upsert({
+    where: { code: 'ADJ-PDV-001' },
+    update: {
+      sectorId: adjameSector.id,
+    },
+    create: {
+      code: 'ADJ-PDV-001',
+      name: 'Superette Adjamé 1',
+      channel: 'GT',
+      segment: 'A',
+      address: 'Adjamé, Rue du Marché',
+      territoryId: adjame.id,
+      sectorId: adjameSector.id,
+      status: 'APPROVED',
+      lat: 5.36,
+      lng: -4.03,
+    },
+  });
+
+  await prisma.outlet.upsert({
+    where: { code: 'ADJ-PDV-002' },
+    update: {
+      sectorId: adjameSector.id,
+    },
+    create: {
+      code: 'ADJ-PDV-002',
+      name: 'Boutique Adjamé 2',
+      channel: 'PROXI',
+      segment: 'B',
+      address: 'Adjamé, Avenue 4',
+      territoryId: adjame.id,
+      sectorId: adjameSector.id,
+      status: 'APPROVED',
+      lat: 5.358,
+      lng: -4.028,
+    },
+  });
+
+  console.log('✅ Sample outlets seeded & linked to sectors');
 
   console.log('\n🎉 Seeding completed!');
   console.log('\n📝 Test Accounts:');

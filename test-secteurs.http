@@ -1,0 +1,85 @@
+### Variables
+@baseUrl = http://localhost:3000
+@adminToken = YOUR_ADMIN_TOKEN_HERE
+@vendorToken = YOUR_VENDOR_TOKEN_HERE
+
+### 1. Créer un secteur
+POST {{baseUrl}}/territories/sectors
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "code": "SECT-001",
+  "name": "Secteur Centre-Ville",
+  "level": "SECTEUR"
+}
+
+### 2. Récupérer tous les secteurs
+GET {{baseUrl}}/territories/sectors
+Authorization: Bearer {{adminToken}}
+
+### 3. Récupérer un secteur par ID
+GET {{baseUrl}}/territories/sectors/SECTOR_ID_HERE
+Authorization: Bearer {{adminToken}}
+
+### 4. Assigner des PDV à un secteur
+POST {{baseUrl}}/territories/sectors/assign-outlets
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "sectorId": "SECTOR_ID_HERE",
+  "outletIds": [
+    "OUTLET_ID_1",
+    "OUTLET_ID_2"
+  ]
+}
+
+### 5. Assigner un secteur à un vendeur
+POST {{baseUrl}}/territories/sectors/assign-vendor
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "vendorId": "VENDOR_ID_HERE",
+  "sectorId": "SECTOR_ID_HERE"
+}
+
+### 6. Récupérer les PDV d'un vendeur
+GET {{baseUrl}}/territories/vendors/VENDOR_ID_HERE/outlets
+Authorization: Bearer {{adminToken}}
+
+### 7. Récupérer les PDV du vendeur connecté (pour créer une route)
+GET {{baseUrl}}/routes/vendor-outlets
+Authorization: Bearer {{vendorToken}}
+
+### 8. Créer une route pour un vendeur
+POST {{baseUrl}}/routes
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "userId": "VENDOR_ID_HERE",
+  "date": "2025-10-23",
+  "outletIds": [
+    "OUTLET_ID_1",
+    "OUTLET_ID_2",
+    "OUTLET_ID_3"
+  ]
+}
+
+### 9. Récupérer toutes les routes
+GET {{baseUrl}}/routes
+Authorization: Bearer {{adminToken}}
+
+### 10. Récupérer les routes d'un vendeur
+GET {{baseUrl}}/routes?userId=VENDOR_ID_HERE
+Authorization: Bearer {{adminToken}}
+
+### 11. Récupérer les routes par secteur
+GET {{baseUrl}}/routes?sectorId=SECTOR_ID_HERE
+Authorization: Bearer {{adminToken}}
+
+### 12. Supprimer un secteur
+DELETE {{baseUrl}}/territories/sectors/SECTOR_ID_HERE
+Authorization: Bearer {{adminToken}}

@@ -33,11 +33,12 @@ export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
   /**
-   * Récupérer tous les utilisateurs
+   * Récupérer tous les utilisateurs (filtrés selon le rôle)
    */
   @Get()
-  async findAll() {
-    const users = await this.usersService.findAll();
+  async findAll(@Request() req: RequestWithUser) {
+    const currentUserId = req.user?.userId;
+    const users = await this.usersService.findAll(currentUserId);
     return {
       success: true,
       data: users,

@@ -9,6 +9,7 @@ import {
   Query,
   UseGuards,
   Request,
+  ForbiddenException,
 } from '@nestjs/common';
 import { OutletsService } from './outlets.service';
 import { CreateOutletDto } from './dto/create-outlet.dto';
@@ -22,6 +23,7 @@ interface RequestWithUser {
   user?: {
     userId?: string;
     role?: string;
+    territoryId?: string;
   };
 }
 
@@ -40,15 +42,29 @@ export class OutletsController {
   }
 
   @Get()
-  findAll(
+  async findAll(
     @Query('status') status?: OutletStatusEnum,
     @Query('territoryId') territoryId?: string,
     @Query('channel') channel?: string,
     @Query('proposedBy') proposedBy?: string,
+    @Request() req?: RequestWithUser,
   ) {
+    const userRole = req?.user?.role;
+    const userTerritoryId = req?.user?.territoryId;
+
+    // 🔒 FILTRAGE PAR TERRITOIRE selon le rôle
+    // ADMIN/SUP : Voient SEULEMENT les PDV de LEUR territoire
+    let finalTerritoryId = territoryId;
+
+    if (userRole === 'ADMIN' || userRole === 'SUP') {
+      if (userTerritoryId) {
+        finalTerritoryId = userTerritoryId;
+      }
+    }
+
     return this.outletsService.findAll({
       status,
-      territoryId,
+      territoryId: finalTerritoryId,
       channel,
       proposedBy,
     });
@@ -60,6 +76,47 @@ export class OutletsController {
     @Query('proposedBy') proposedBy?: string,
   ) {
     return this.outletsService.getStats({ territoryId, proposedBy });
+  }
+
+  /**
+   * 🔒 NOUVEL ENDPOINT DÉDIÉ : Récupérer les PDV de MON territoire
+   * Route: GET /outlets/my-territory?status=APPROVED
+   */
+  @Get('my-territory')
+  @Roles('ADMIN', 'SUP')
+  async getMyTerritoryOutlets(
+    @Query('status') status?: OutletStatusEnum,
+    @Query('channel') channel?: string,
+    @Request() req?: RequestWithUser,
+  ) {
+    const userTerritoryId = req?.user?.territoryId;
+    
+    // 🔍 LOGS DE DEBUG
+    console.log('📍 [my-territory] Requête reçue');
+    console.log('📍 User:', req?.user);
+    console.log('📍 TerritoryId de l\'utilisateur:', userTerritoryId);
+    console.log('📍 Status demandé:', status);
+    console.log('📍 Channel demandé:', channel);
+
+    if (!userTerritoryId) {
+      console.error('❌ Pas de territoryId dans le JWT');
+      throw new ForbiddenException(
+        'Aucun territoire assigné à cet utilisateur',
+      );
+    }
+
+    // 🎯 Forcer le territoryId de l'utilisateur connecté
+    const filters = {
+      status,
+      territoryId: userTerritoryId, // ← FORCÉ
+      channel,
+    };
+    
+    console.log('📍 Filtres appliqués:', filters);
+    const result = await this.outletsService.findAll(filters);
+    console.log('📍 Nombre de PDV trouvés:', result?.length || 0);
+    
+    return result;
   }
 
   @Get(':id')
@@ -74,19 +131,43 @@ export class OutletsController {
 
   @Patch(':id/approve')
   @Roles('ADMIN', 'SUP')
-  approve(@Param('id') id: string, @Request() req: RequestWithUser) {
+  async approve(@Param('id') id: string, @Request() req: RequestWithUser) {
     const validatorId = req.user?.userId;
+    const userTerritoryId = req.user?.territoryId;
+
+    // 🔒 VÉRIFICATION : L'ADMIN peut valider SEULEMENT les PDV de SON territoire
+    if (userTerritoryId) {
+      const outlet = await this.outletsService.findOne(id);
+      if (outlet.territoryId !== userTerritoryId) {
+        throw new ForbiddenException(
+          'Vous ne pouvez valider que les PDV de votre territoire',
+        );
+      }
+    }
+
     return this.outletsService.approve(id, validatorId);
   }
 
   @Patch(':id/reject')
   @Roles('ADMIN', 'SUP')
-  reject(
+  async reject(
     @Param('id') id: string,
     @Body('reason') reason?: string,
     @Request() req?: RequestWithUser,
   ) {
     const validatorId = req?.user?.userId;
+    const userTerritoryId = req?.user?.territoryId;
+
+    // 🔒 VÉRIFICATION : L'ADMIN peut rejeter SEULEMENT les PDV de SON territoire
+    if (userTerritoryId) {
+      const outlet = await this.outletsService.findOne(id);
+      if (outlet.territoryId !== userTerritoryId) {
+        throw new ForbiddenException(
+          'Vous ne pouvez rejeter que les PDV de votre territoire',
+        );
+      }
+    }
+
     return this.outletsService.reject(id, reason, validatorId);
   }
 

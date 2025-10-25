@@ -2,6 +2,7 @@ import {
   Controller,
   Get,
   Post,
+  Put,
   Delete,
   Body,
   Param,
@@ -16,6 +17,8 @@ import { RoleEnum } from '@prisma/client';
 import { CreateSectorDto } from './dto/create-sector.dto';
 import { AssignOutletsToSectorDto } from './dto/assign-outlets-to-sector.dto';
 import { AssignSectorToVendorDto } from './dto/assign-sector-to-vendor.dto';
+import { AssignOutletsToVendorDto } from './dto/assign-outlets-to-vendor.dto';
+import { RemoveOutletsFromSectorDto } from './dto/remove-outlets-from-sector.dto';
 
 @Controller('territories')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -33,6 +36,51 @@ export class TerritoriesController {
       success: true,
       data: territories,
       message: 'Territoires récupérés avec succès',
+    };
+  }
+
+  /**
+   * POST /territories
+   * Créer un nouveau territoire (ZONE)
+   */
+  @Post()
+  @Roles(RoleEnum.ADMIN, RoleEnum.SUP)
+  async createTerritory(@Body() data: any) {
+    const territory = await this.territoriesService.createTerritory(data);
+    return {
+      success: true,
+      data: territory,
+      message: 'Territoire créé avec succès',
+    };
+  }
+
+  /**
+   * PUT /territories/:id
+   * Mettre à jour un territoire
+   */
+  @Put(':id')
+  @Roles(RoleEnum.ADMIN, RoleEnum.SUP)
+  async updateTerritory(@Param('id') id: string, @Body() data: any) {
+    const territory = await this.territoriesService.updateTerritory(id, data);
+    return {
+      success: true,
+      data: territory,
+      message: 'Territoire mis à jour avec succès',
+    };
+  }
+
+  /**
+   * DELETE /territories/:id
+   * Supprimer un territoire
+   */
+  @Delete(':id')
+  @Roles(RoleEnum.ADMIN, RoleEnum.SUP)
+  async deleteTerritory(@Param('id') id: string) {
+    await this.territoriesService.deleteTerritory(id);
+    return {
+      success: true,
+      data: null,
+      message: 'Territoire supprimé avec succès',
     };
   }
 
@@ -137,6 +185,66 @@ export class TerritoriesController {
       success: true,
       data: result,
       message: result.message,
+    };
+  }
+
+  /**
+   * POST /territories/sectors/remove-outlets
+   * Retirer des PDV d'un secteur (ADMIN uniquement)
+   */
+  @Post('sectors/remove-outlets')
+  @Roles(RoleEnum.ADMIN)
+  async removeOutletsFromSector(@Body() dto: RemoveOutletsFromSectorDto) {
+    const result = await this.territoriesService.removeOutletsFromSector(dto);
+    return {
+      success: true,
+      data: result,
+      message: result.message,
+    };
+  }
+
+  /**
+   * POST /territories/vendors/assign-outlets
+   * Assigner des PDV directement à un vendeur (ADMIN uniquement)
+   */
+  @Post('vendors/assign-outlets')
+  @Roles(RoleEnum.ADMIN)
+  async assignOutletsToVendor(@Body() dto: AssignOutletsToVendorDto) {
+    const result = await this.territoriesService.assignOutletsToVendor(dto);
+    return {
+      success: true,
+      data: result,
+      message: result.message,
+    };
+  }
+
+  /**
+   * DELETE /territories/vendors/:vendorId/sector
+   * Retirer un vendeur de son secteur (ADMIN uniquement)
+   */
+  @Delete('vendors/:vendorId/sector')
+  @Roles(RoleEnum.ADMIN)
+  async removeSectorFromVendor(@Param('vendorId') vendorId: string) {
+    const result = await this.territoriesService.removeSectorFromVendor(vendorId);
+    return {
+      success: true,
+      data: result,
+      message: result.message,
+    };
+  }
+
+  /**
+   * GET /territories/vendors/with-sectors
+   * Récupérer tous les vendeurs avec leurs secteurs (ADMIN/SUP uniquement)
+   */
+  @Get('vendors/with-sectors')
+  @Roles(RoleEnum.ADMIN, RoleEnum.SUP)
+  async findAllVendorsWithSectors() {
+    const vendors = await this.territoriesService.findAllVendorsWithSectors();
+    return {
+      success: true,
+      data: vendors,
+      message: 'Vendeurs avec secteurs récupérés avec succès',
     };
   }
 }

@@ -57,6 +57,8 @@ export class AuthService {
     const { accessToken, refreshToken } = await this.generateTokens(
       user.id,
       user.email,
+      user.role,
+      user.territoryId || '',
     );
     const userResponse = this.mapToUserResponse(user);
 
@@ -149,6 +151,8 @@ export class AuthService {
     const { accessToken, refreshToken } = await this.generateTokens(
       user.id,
       user.email,
+      user.role,
+      user.territoryId || '',
       ip,
       userAgent,
     );
@@ -410,6 +414,8 @@ export class AuthService {
     const { accessToken, refreshToken } = await this.generateTokens(
       storedToken.userId,
       storedToken.user.email,
+      storedToken.user.role,
+      storedToken.user.territoryId,
       ip,
       userAgent,
     );
@@ -472,12 +478,16 @@ export class AuthService {
   private async generateTokens(
     userId: string,
     email: string,
+    role: string,
+    territoryId: string,
     ip?: string,
     userAgent?: string,
   ): Promise<{ accessToken: string; refreshToken: string }> {
     const payload: JwtPayload = {
       sub: userId,
       email,
+      role,
+      territoryId,
     };
 
     const accessToken = this.jwtService.sign(payload, {

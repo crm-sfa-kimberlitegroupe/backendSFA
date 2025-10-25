@@ -31,17 +31,28 @@ export class OutletsService {
       throw new BadRequestException(`Un PDV avec le code ${code} existe déjà`);
     }
 
-    // Déterminer le territoire du PDV
+    // Déterminer le territoire et le secteur du PDV
     let territoryId = createOutletDto.territoryId;
-    // Si un userId est fourni, récupérer le territoire de l'utilisateur
+    let sectorId = createOutletDto.sectorId;
+
+    // Si un userId est fourni, récupérer le territoire ET le secteur assigné de l'utilisateur
     if (userId) {
       const user = await this.prisma.user.findUnique({
         where: { id: userId },
-        select: { territoryId: true },
+        select: {
+          territoryId: true,
+          assignedSectorId: true, // ⭐ Récupérer le secteur assigné au vendeur
+        },
       });
       if (user) {
-        // Le PDV hérite automatiquement du territoire du vendeur
+        // Le PDV hérite automatiquement du territoire ET du secteur du vendeur
         territoryId = user.territoryId;
+
+        // ⭐ HÉRITAGE AUTOMATIQUE DU SECTEUR
+        // Si le vendeur a un secteur assigné, le PDV hérite de ce secteur
+        if (user.assignedSectorId && !sectorId) {
+          sectorId = user.assignedSectorId;
+        }
       }
     }
 
@@ -50,7 +61,23 @@ export class OutletsService {
       throw new BadRequestException('Le territoire est requis');
     }
 
-    // Créer le PDV
+    // 🗺️ Récupérer les informations géographiques du territoire
+    const territory = await this.prisma.territory.findUnique({
+      where: { id: territoryId },
+      select: {
+        region: true,
+        commune: true,
+        ville: true,
+        quartier: true,
+        codePostal: true,
+      },
+    });
+
+    if (!territory) {
+      throw new NotFoundException(`Territoire ${territoryId} introuvable`);
+    }
+
+    // Créer le PDV avec les informations géographiques héritées du territoire
     const outlet = await this.prisma.outlet.create({
       data: {
         code,
@@ -63,6 +90,14 @@ export class OutletsService {
         openHours: createOutletDto.openHours || {},
         status: createOutletDto.status || OutletStatusEnum.PENDING,
         territoryId: territoryId,
+        sectorId: sectorId || undefined,  // ⭐ Assigner le secteur hérité
+        // 🗺️ Copier les informations géographiques du territoire
+        region: territory.region || undefined,
+        commune: territory.commune || undefined,
+        ville: territory.ville || undefined,
+        quartier: territory.quartier || undefined,
+        codePostal: territory.codePostal || undefined,
+
         proposedBy: userId || createOutletDto.proposedBy || undefined,
         validationComment: createOutletDto.validationComment || undefined,
         osmPlaceId: createOutletDto.osmPlaceId || undefined,
@@ -96,23 +131,57 @@ export class OutletsService {
   async findAll(filters?: {
     status?: OutletStatusEnum;
     territoryId?: string;
+    sectorId?: string;
     channel?: string;
     proposedBy?: string;
+    region?: string;
+    commune?: string;
+    ville?: string;
+    quartier?: string;
   }) {
+    console.log('🔍 [findAll] Filtres reçus:', filters);
+
     const where: Prisma.OutletWhereInput = {};
 
     if (filters?.status) {
       where.status = filters.status;
+      console.log('🔍 Filtre status appliqué:', filters.status);
     }
     if (filters?.territoryId) {
       where.territoryId = filters.territoryId;
+      console.log('🔍 Filtre territoryId appliqué:', filters.territoryId);
+    }
+    if (filters?.sectorId) {
+      where.sectorId = filters.sectorId;
+      console.log('🔍 Filtre sectorId appliqué:', filters.sectorId);
     }
     if (filters?.channel) {
       where.channel = filters.channel;
+      console.log('🔍 Filtre channel appliqué:', filters.channel);
     }
     if (filters?.proposedBy) {
       where.proposedBy = filters.proposedBy;
+      console.log('🔍 Filtre proposedBy appliqué:', filters.proposedBy);
     }
+    // 🗺️ Filtres géographiques
+    if (filters?.region) {
+      where.region = filters.region;
+      console.log('🔍 Filtre region appliqué:', filters.region);
+    }
+    if (filters?.commune) {
+      where.commune = filters.commune;
+      console.log('🔍 Filtre commune appliqué:', filters.commune);
+    }
+    if (filters?.ville) {
+      where.ville = filters.ville;
+      console.log('🔍 Filtre ville appliqué:', filters.ville);
+    }
+    if (filters?.quartier) {
+      where.quartier = filters.quartier;
+      console.log('🔍 Filtre quartier appliqué:', filters.quartier);
+    }
+
+    console.log('🔍 Clause WHERE finale:', JSON.stringify(where));
 
     const outlets = await this.prisma.outlet.findMany({
       where,
@@ -139,6 +208,16 @@ export class OutletsService {
         createdAt: 'desc',
       },
     });
+
+    console.log('🔍 Nombre de PDV trouvés dans la DB:', outlets?.length || 0);
+    if (outlets?.length > 0) {
+      console.log('🔍 Premier PDV:', {
+        id: outlets[0].id,
+        name: outlets[0].name,
+        status: outlets[0].status,
+        territoryId: outlets[0].territoryId,
+      });
+    }
 
     return outlets;
   }

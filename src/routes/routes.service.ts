@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ForbiddenException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { RouteStatusEnum, RouteStopStatusEnum, RoleEnum } from '@prisma/client';
 
@@ -144,11 +148,7 @@ export class RoutesService {
   /**
    * Créer une nouvelle route
    */
-  async create(data: {
-    userId: string;
-    date: string;
-    outletIds: string[];
-  }) {
+  async create(data: { userId: string; date: string; outletIds: string[]}) {
     const { userId, date, outletIds } = data;
 
     // Vérifier si une route existe déjà pour cet utilisateur à cette date
@@ -335,13 +335,13 @@ export class RoutesService {
     });
 
     if (!user) {
-      throw new NotFoundException(`Utilisateur avec l'ID ${userId} introuvable`);
+      throw new NotFoundException(
+        `Utilisateur avec l'ID ${userId} introuvable`,
+      );
     }
 
     if (!user.assignedSector) {
-      throw new ForbiddenException(
-        'Aucun secteur assigné à cet utilisateur',
-      );
+      throw new ForbiddenException('Aucun secteur assigné à cet utilisateur');
     }
 
     return {
@@ -357,5 +357,125 @@ export class RoutesService {
       },
       outlets: user.assignedSector.outletsSector || [],
     };
+  }
+
+  /**
+   * Calculer la distance entre deux points (formule de Haversine)
+   */
+  private calculateDistance(
+    lat1: number,
+    lng1: number,
+    lat2: number,
+    lng2: number,
+  ): number {
+    const R = 6371; // Rayon de la Terre en km
+    const dLat = ((lat2 - lat1) * Math.PI) / 180;
+    const dLng = ((lng2 - lng1) * Math.PI) / 180;
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos((lat1 * Math.PI) / 180) *
+        Math.cos((lat2 * Math.PI) / 180) *
+        Math.sin(dLng / 2) *
+        Math.sin(dLng / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
+  }
+
+  /**
+   * Optimiser l'ordre des PDV avec l'algorithme du plus proche voisin
+   */
+  private optimizeOutletOrder(outlets: any[]): string[] {
+    if (outlets.length <= 1) {
+      return outlets.map((o) => o.id);
+    }
+
+    // Filtrer les outlets qui ont des coordonnées
+    const validOutlets = outlets.filter((o) => o.lat && o.lng);
+    if (validOutlets.length === 0) {
+      return outlets.map((o) => o.id);
+    }
+
+    const visited = new Set<string>();
+    const orderedIds: string[] = [];
+
+    // Commencer par le premier PDV
+    let current = validOutlets[0];
+    visited.add(current.id);
+    orderedIds.push(current.id);
+
+    // Trouver le plus proche voisin non visité
+    while (visited.size < validOutlets.length) {
+      let nearestOutlet: any = null;
+      let minDistance = Infinity;
+
+      for (const outlet of validOutlets) {
+        if (!visited.has(outlet.id)) {
+          const distance = this.calculateDistance(
+            Number(current.lat),
+            Number(current.lng),
+            Number(outlet.lat),
+            Number(outlet.lng),
+          );
+
+          if (distance < minDistance) {
+            minDistance = distance;
+            nearestOutlet = outlet;
+          }
+        }
+      }
+
+      if (nearestOutlet) {
+        visited.add(nearestOutlet.id);
+        orderedIds.push(nearestOutlet.id);
+        current = nearestOutlet;
+      } else {
+        break;
+      }
+    }
+
+    // Ajouter les outlets sans coordonnées à la fin
+    const outletsWithoutCoords = outlets.filter((o) => !o.lat || !o.lng);
+    orderedIds.push(...outletsWithoutCoords.map((o) => o.id));
+
+    return orderedIds;
+  }
+
+  /**
+   * Générer une route automatiquement avec optimisation
+   */
+  async generateRoute(data: {
+    userId: string;
+    date: string;
+    outletIds?: string[];
+    optimize?: boolean;
+  }) {
+    const { userId, date, outletIds, optimize = true } = data;
+
+    // Récupérer l'utilisateur et son secteur
+    const vendorData = await this.getVendorSectorOutlets(userId);
+
+    let selectedOutlets = vendorData.outlets;
+
+    // Si des IDs spécifiques sont fournis, filtrer
+    if (outletIds && outletIds.length > 0) {
+      selectedOutlets = selectedOutlets.filter((o) => outletIds.includes(o.id));
+    }
+
+    if (selectedOutlets.length === 0) {
+      throw new ForbiddenException('Aucun point de vente disponible');
+    }
+
+    // Optimiser l'ordre si demandé
+    let orderedOutletIds = selectedOutlets.map((o) => o.id);
+    if (optimize) {
+      orderedOutletIds = this.optimizeOutletOrder(selectedOutlets);
+    }
+
+    // Créer la route
+    return this.create({
+      userId,
+      date,
+      outletIds: orderedOutletIds,
+    });
   }
 }

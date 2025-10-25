@@ -71,6 +71,11 @@ export class CreateOutletDto {
   @IsString()
   territoryId: string;
 
+  @ApiPropertyOptional({ description: 'ID du secteur (hérité auto du vendeur si non spécifié)' })
+  @IsOptional()
+  @IsString()
+  sectorId?: string;
+
   @ApiPropertyOptional({ description: 'ID de l utilisateur proposant le PDV' })
   @IsOptional()
   @IsString()

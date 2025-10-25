@@ -13,6 +13,16 @@ export interface JwtPayload {
   email: string;
 
   /**
+   * Rôle de l'utilisateur (ADMIN, SUP, REP)
+   */
+  role: string;
+
+  /**
+   * ID du territoire de l'utilisateur
+   */
+  territoryId: string;
+
+  /**
    * Timestamp de création du token
    */
   iat?: number;

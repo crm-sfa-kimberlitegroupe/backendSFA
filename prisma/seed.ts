@@ -56,14 +56,39 @@ async function main() {
   });
   console.log('✅ Andre user created:', andreUser.email);
 
-  // Create territories for test users
+  // Create rich territories (ZONES) first
   const plateau = await prisma.territory.upsert({
     where: { code: 'PLATEAU' },
     update: {},
     create: {
       code: 'PLATEAU',
-      name: 'Plateau',
+      name: 'Plateau - Zone Commerciale',
       level: 'ZONE',
+
+      // Informations géographiques
+      region: 'Abidjan',
+      commune: 'Plateau',
+      ville: 'Abidjan',
+      quartier: 'Plateau Dokui',
+      codePostal: '01 BP 1234',
+      lat: 5.3250,
+      lng: -4.0200,
+
+      // Informations démographiques
+      population: 45000,
+      superficie: 4.2,
+      densitePopulation: 10714.29,
+
+      // Informations commerciales
+      potentielCommercial: 'TRES_FORT',
+      categorieMarche: 'URBAIN',
+      typeZone: 'COMMERCIAL',
+      nombrePDVEstime: 150,
+      tauxPenetration: 20.0,
+
+      // Métadonnées
+      notes:
+        'Zone centrale d Abidjan, forte concentration de commerces et bureaux',
     },
   });
 
@@ -72,8 +97,32 @@ async function main() {
     update: {},
     create: {
       code: 'COCODY',
-      name: 'Cocody',
+      name: 'Cocody - Zone Résidentielle',
       level: 'ZONE',
+
+      // Informations géographiques
+      region: 'Abidjan',
+      commune: 'Cocody',
+      ville: 'Abidjan',
+      quartier: 'Cocody 2 Plateaux',
+      codePostal: '08 BP 2345',
+      lat: 5.3540,
+      lng: -3.9860,
+
+      // Informations démographiques
+      population: 75000,
+      superficie: 12.5,
+      densitePopulation: 6000.0,
+
+      // Informations commerciales
+      potentielCommercial: 'FORT',
+      categorieMarche: 'URBAIN',
+      typeZone: 'MIXTE',
+      nombrePDVEstime: 200,
+      tauxPenetration: 15.0,
+
+      // Métadonnées
+      notes: 'Zone résidentielle haut standing avec centres commerciaux',
     },
   });
 
@@ -82,12 +131,37 @@ async function main() {
     update: {},
     create: {
       code: 'ADJAME',
-      name: 'Adjamé',
+      name: 'Adjamé - Zone Populaire',
       level: 'ZONE',
+
+      // Informations géographiques
+      region: 'Abidjan',
+      commune: 'Adjamé',
+      ville: 'Abidjan',
+      quartier: 'Adjamé Marché',
+      codePostal: '16 BP 3456',
+      lat: 5.3600,
+      lng: -4.0300,
+
+      // Informations démographiques
+      population: 120000,
+      superficie: 8.7,
+      densitePopulation: 13793.10,
+
+      // Informations commerciales
+      potentielCommercial: 'MOYEN',
+      categorieMarche: 'URBAIN',
+      typeZone: 'COMMERCIAL',
+      nombrePDVEstime: 300,
+      tauxPenetration: 10.0,
+
+      // Métadonnées
+      notes:
+        'Zone populaire avec grand marché, forte densité de commerces de proximité',
     },
   });
 
-  console.log('✅ Territories created');
+  console.log('✅ Rich territories created with detailed information');
 
   // Create sectors for each zone
   const plateauSector = await prisma.territory.upsert({
@@ -124,6 +198,23 @@ async function main() {
   });
 
   console.log('✅ Sectors created');
+
+  // Create Manager (SUP) - assigned to Plateau to see all PDV
+  const hashedPasswordManager = await bcrypt.hash('manager123', 10);
+  const managerTest = await prisma.user.upsert({
+    where: { email: 'manager@test.com' },
+    update: {},
+    create: {
+      email: 'manager@test.com',
+      passwordHash: hashedPasswordManager,
+      firstName: 'Manager',
+      lastName: 'Test',
+      role: 'SUP',
+      status: 'ACTIVE',
+      territoryId: plateau.id, // Assigned to Plateau to see PDV
+    },
+  });
+  console.log('✅ Manager created:', managerTest.email);
 
   // Create admins for each territory
   const hashedPasswordTest = await bcrypt.hash('admin123', 10);
@@ -170,28 +261,30 @@ async function main() {
     },
   });
 
-  const hashedPasswordManager = await bcrypt.hash('manager123', 10);
-  const managerTest = await prisma.user.upsert({
-    where: { email: 'manager@test.com' },
-    update: {},
-    create: {
-      email: 'manager@test.com',
-      passwordHash: hashedPasswordManager,
-      firstName: 'Manager',
-      lastName: 'Test',
-      role: 'SUP',
-      status: 'ACTIVE',
-      territoryId: defaultTerritory.id,
-    },
-  });
-
   console.log(
     '✅ Admins created:',
     adminPlateau.email,
     adminCocody.email,
     adminAdjame.email,
   );
-  console.log('✅ Manager created:', managerTest.email);
+
+  // Update territories to assign admins
+  await prisma.territory.update({
+    where: { id: plateau.id },
+    data: { adminId: adminPlateau.id },
+  });
+
+  await prisma.territory.update({
+    where: { id: cocody.id },
+    data: { adminId: adminCocody.id },
+  });
+
+  await prisma.territory.update({
+    where: { id: adjame.id },
+    data: { adminId: adminAdjame.id },
+  });
+
+  console.log('✅ Admins assigned to their territories');
 
   // 3. REP (Vendeur) Users
   const hashedPasswordRep = await bcrypt.hash('vendeur123', 10);
@@ -360,6 +453,88 @@ async function main() {
   });
 
   console.log('✅ Sample outlets seeded & linked to sectors');
+
+  // ====== AJOUT PDV POUR SAMUEL AVEC INFOS GÉOGRAPHIQUES ======
+  // Récupérer le territoire de Samuel
+  const samuelUser = await prisma.user.findUnique({
+    where: { email: 'samuel@gmail.com' },
+    include: { territory: true }
+  });
+
+  if (samuelUser) {
+    console.log(
+      '🔍 Samuel trouvé, création de PDV avec infos géographiques...',
+    );
+    // PDV 1 pour Samuel
+    await prisma.outlet.upsert({
+      where: { code: 'SAM-PDV-001' },
+      update: {},
+      create: {
+        code: 'SAM-PDV-001',
+        name: 'Boutique Koumassi Centre',
+        channel: 'GT',
+        segment: 'A',
+        address: 'Koumassi, Centre Commercial',
+        territoryId: samuelUser.territoryId,
+        proposedBy: samuelUser.id,
+        status: 'PENDING',
+        // 🗺️ Infos géographiques héritées du territoire
+        region: samuelUser.territory?.region,
+        commune: samuelUser.territory?.commune,
+        ville: samuelUser.territory?.ville,
+        quartier: samuelUser.territory?.quartier,
+        codePostal: samuelUser.territory?.codePostal,
+      },
+    });
+
+    // PDV 2 pour Samuel
+    await prisma.outlet.upsert({
+      where: { code: 'SAM-PDV-002' },
+      update: {},
+      create: {
+        code: 'SAM-PDV-002',
+        name: 'Supermarché Mocho',
+        channel: 'MT',
+        segment: 'A',
+        address: 'Mocho, Avenue Principale',
+        territoryId: samuelUser.territoryId,
+        proposedBy: samuelUser.id,
+        status: 'APPROVED',
+        // 🗺️ Infos géographiques héritées du territoire
+        region: samuelUser.territory?.region,
+        commune: samuelUser.territory?.commune,
+        ville: samuelUser.territory?.ville,
+        quartier: samuelUser.territory?.quartier,
+        codePostal: samuelUser.territory?.codePostal,
+      },
+    });
+
+    // PDV 3 pour Samuel
+    await prisma.outlet.upsert({
+      where: { code: 'SAM-PDV-003' },
+      update: {},
+      create: {
+        code: 'SAM-PDV-003',
+        name: 'Épicerie des Lagunes',
+        channel: 'PROXI',
+        segment: 'B',
+        address: 'Des Lagunes, Quartier résidentiel',
+        territoryId: samuelUser.territoryId,
+        proposedBy: samuelUser.id,
+        status: 'APPROVED',
+        // 🗺️ Infos géographiques héritées du territoire
+        region: samuelUser.territory?.region,
+        commune: samuelUser.territory?.commune,
+        ville: samuelUser.territory?.ville,
+        quartier: samuelUser.territory?.quartier,
+        codePostal: samuelUser.territory?.codePostal,
+      },
+    });
+
+    console.log('✅ 3 PDV créés pour Samuel avec infos géographiques!');
+  } else {
+    console.log('⚠️ Samuel non trouvé, PDV non créés');
+  }
 
   console.log('\n🎉 Seeding completed!');
   console.log('\n📝 Test Accounts:');

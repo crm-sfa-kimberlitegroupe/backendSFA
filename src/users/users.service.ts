@@ -9,7 +9,7 @@ import { UpdateUserDto } from './dto/update-user.dto';
 import { UserPerformanceDto } from './dto/user-performance.dto';
 import { PrismaService } from '../prisma/prisma.service';
 import { CloudinaryService } from '../cloudinary/cloudinary.service';
-import { User as PrismaUser, RoleEnum, Prisma } from '@prisma/client';
+import { RoleEnum, Prisma } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 
 @Injectable()
@@ -35,20 +35,28 @@ export class UsersService {
     // Hasher le mot de passe
     const hashedPassword = await bcrypt.hash(createUserDto.password, 10);
 
-    // Déterminer le territoire du nouvel utilisateur
+    // Déterminer le territoire et secteur du nouvel utilisateur
     let territoryId = createUserDto.territoryId;
+    let managerId = createUserDto.managerId;
 
-    // Si un creatorId est fourni et qu'aucun territoire n'est spécifié,
-    // hériter du territoire du créateur (admin)
-    if (!territoryId && creatorId) {
+    // Si un creatorId est fourni (création par un admin)
+    if (creatorId) {
       const creator = await this.prisma.user.findUnique({
         where: { id: creatorId },
-        select: { territoryId: true },
+        select: { territoryId: true, role: true },
       });
 
       if (creator) {
-        // Le vendeur hérite automatiquement du territoire de l'admin
-        territoryId = creator.territoryId;
+        // Si le créateur est ADMIN et que le nouvel utilisateur est REP
+        if (creator.role === 'ADMIN' && createUserDto.role === 'REP') {
+          // Le vendeur hérite automatiquement du territoire (ZONE) de l'admin
+          if (!territoryId) {
+            territoryId = creator.territoryId;
+          }
+
+          // Assigner automatiquement l'admin comme manager
+          managerId = creatorId;
+        }
       }
     }
 
@@ -75,6 +83,8 @@ export class UsersService {
         role: (createUserDto.role as RoleEnum) || 'REP', // Rôle par défaut: REP
         status: 'ACTIVE',
         territoryId: territoryId,
+        ...(managerId && { managerId }), // N'inclure managerId que s'il est défini
+        // Note: assignedSectorId peut être ajouté via update après création du vendeur
       },
     });
 
@@ -162,8 +172,52 @@ export class UsersService {
     };
   }
 
-  async findAll(): Promise<User[]> {
-    const users = await this.prisma.user.findMany();
+  async findAll(currentUserId?: string): Promise<User[]> {
+    // Si pas d'utilisateur connecté, retourner tous les utilisateurs (pour compatibilité)
+    if (!currentUserId) {
+      const users = await this.prisma.user.findMany();
+      return users.map((user) => this.mapPrismaUserToEntity(user));
+    }
+
+    // Récupérer l'utilisateur connecté
+    const currentUser = await this.prisma.user.findUnique({
+      where: { id: currentUserId },
+      select: { role: true },
+    });
+
+    if (!currentUser) {
+      const users = await this.prisma.user.findMany();
+      return users.map((user) => this.mapPrismaUserToEntity(user));
+    }
+
+    // Si l'utilisateur est ADMIN, il ne voit que les vendeurs qu'il a créés (managerId = son ID)
+    if (currentUser.role === 'ADMIN') {
+      const users = await this.prisma.user.findMany({
+        where: {
+          managerId: currentUserId,
+          role: 'REP', // Les admins ne voient que les vendeurs
+        },
+        include: {
+          territory: {
+            select: {
+              name: true,
+            },
+          },
+        },
+      });
+      return users.map((user) => this.mapPrismaUserToEntity(user));
+    }
+
+    // Si l'utilisateur est SUP (Manager), il voit tous les utilisateurs
+    if (currentUser.role === 'SUP') {
+      const users = await this.prisma.user.findMany();
+      return users.map((user) => this.mapPrismaUserToEntity(user));
+    }
+
+    // Pour les autres rôles (REP), ne retourner que l'utilisateur lui-même
+    const users = await this.prisma.user.findMany({
+      where: { id: currentUserId },
+    });
     return users.map((user) => this.mapPrismaUserToEntity(user));
   }
 
@@ -451,7 +505,8 @@ export class UsersService {
   /**
    * Mapper un utilisateur Prisma vers l'entité User
    */
-  private mapPrismaUserToEntity(prismaUser: PrismaUser): User {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private mapPrismaUserToEntity(prismaUser: any): User {
     return {
       id: prismaUser.id,
       email: prismaUser.email,

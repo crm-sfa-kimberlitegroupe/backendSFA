@@ -28,6 +28,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       userId: payload.sub,
       email: payload.email,
       role: user.role, // ✅ Ajouter le rôle pour le RolesGuard
+      territoryId: payload.territoryId || user.territoryId, // ✅ Ajouter le territoryId du JWT ou de la DB
     };
   }
 }

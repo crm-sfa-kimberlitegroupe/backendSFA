@@ -53,5 +53,9 @@ export class UpdateUserDto {
 
   @IsOptional()
   @IsString()
+  assignedSectorId?: string;
+
+  @IsOptional()
+  @IsString()
   photoUrl?: string;
 }

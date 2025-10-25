@@ -12,6 +12,7 @@ import {
 } from '@nestjs/common';
 import { RoutesService } from './routes.service';
 import { CreateRouteDto } from './dto/create-route.dto';
+import { GenerateRouteDto } from './dto/generate-route.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -113,6 +114,16 @@ export class RoutesController {
   @Roles(RoleEnum.ADMIN)
   async remove(@Param('id') id: string, @Request() req) {
     return this.routesService.remove(id, req.user.sub, req.user.role);
+  }
+
+  /**
+   * POST /routes/generate
+   * Générer une route automatiquement avec optimisation
+   */
+  @Post('generate')
+  @Roles(RoleEnum.ADMIN, RoleEnum.SUP)
+  async generateRoute(@Body() generateRouteDto: GenerateRouteDto) {
+    return this.routesService.generateRoute(generateRouteDto);
   }
 
   /**

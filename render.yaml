@@ -1,0 +1,59 @@
+services:
+  # Backend API (NestJS)
+  - type: web
+    name: sfa-backend
+    runtime: node
+    region: oregon # Même région que votre base de données
+    plan: free # ou starter, standard selon vos besoins
+    rootDir: backendSFA/backend-sfa
+    buildCommand: npm ci && npm run build:prod
+    startCommand: npm run start:prod
+    # Augmenter la mémoire disponible pour Node.js
+    maxMemoryMB: 512
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NODE_OPTIONS
+        value: --max-old-space-size=512 --optimize-for-size --gc-interval=100
+      - key: DATABASE_URL
+        sync: false # Set this manually in Render Dashboard for security
+        # IMPORTANT: Ajoutez ?connection_limit=10&pool_timeout=20 à votre URL
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_EXPIRATION
+        value: 24h
+      - key: PORT
+        value: 10000
+      - key: FRONTEND_URL
+        value: https://kimberlitegroupe.com
+      # OPTIMISATION: Variables pour réduire la consommation mémoire
+      - key: UV_THREADPOOL_SIZE
+        value: 4
+      - key: NODE_NO_WARNINGS
+        value: 1
+    healthCheckPath: /api/auth/health
+    autoDeploy: true
+
+  # Frontend (React + Vite)
+  - type: web
+    name: sfa-frontend
+    runtime: static
+    region: frankfurt
+    plan: free
+    rootDir: FrontendSFA/frontend
+    buildCommand: npm install && VITE_API_URL=https://backendsfa.onrender.com/api npm run build
+    staticPublishPath: ./dist
+    envVars:
+      - key: VITE_API_URL
+        value: https://backendsfa.onrender.com/api
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    autoDeploy: true
+
+# Base de données PostgreSQL
+# Note: Vous utilisez une base de données existante sur Render
+# Nom de la base: kimbernitbackend
+# Région: oregon
+# La DATABASE_URL est configurée directement dans les envVars du backend ci-dessus

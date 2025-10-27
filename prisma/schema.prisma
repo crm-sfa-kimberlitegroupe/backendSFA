@@ -113,12 +113,12 @@ model Territory {
   name      String
   level     TerritoryLevelEnum   @default(ZONE)
   
-  // Informations géographiques détaillées
-  region            String?
-  commune           String?
-  ville             String?
-  quartier          String?
-  codePostal        String?        @map("code_postal")
+  // Informations géographiques détaillées (champs arrays)
+  regions           String[]       @default([])
+  communes          String[]       @default([])
+  villes            String[]       @default([])
+  quartiers         String[]       @default([])
+  codesPostaux      String[]       @default([]) @map("codes_postaux")
   
   // Coordonnées géographiques (centre du territoire)
   lat               Decimal?       @db.Decimal(9, 6)
@@ -137,35 +137,58 @@ model Territory {
   nombrePDVEstime       Int?                     @map("nombre_pdv_estime") // Estimation du nombre de PDV potentiels
   tauxPenetration       Decimal?                 @map("taux_penetration") @db.Decimal(5, 2) // % de PDV couverts
   
-  // Hiérarchie
+  // ============================================
+  // HIÉRARCHIE TERRITORIALE
+  // ============================================
+  // Parent dans la hiérarchie (ZONE → SECTEUR → SOUS-SECTEUR)
   parentId  String?  @map("parent_id") @db.Uuid
   
-  // Admin assigné au territoire (pour les ZONES créées par le MANAGER)
+  // ============================================
+  // GESTION ADMINISTRATIVE
+  // ============================================
+  // Administrateur (ADMIN) responsable de ce territoire
+  // Utilisé uniquement pour les ZONES de niveau principal
   adminId   String?  @map("admin_id") @db.Uuid
   
-  // Métadonnées
+  // ============================================
+  // MÉTADONNÉES
+  // ============================================
   isActive  Boolean  @default(true) @map("is_active")
-  createdBy String?  @map("created_by") @db.Uuid // ID du manager qui l'a créé
-  notes     String?  @db.Text       // Notes additionnelles
+  createdBy String?  @map("created_by") @db.Uuid // Manager (SUP) qui a créé ce territoire
+  notes     String?  @db.Text       // Notes libres pour contexte métier
   
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
 
-  // Relations
+  // ============================================
+  // RELATIONS
+  // ============================================
+  
+  // Hiérarchie territoriale (auto-référence)
   parent            Territory?  @relation("TerritoryHierarchy", fields: [parentId], references: [id], onDelete: SetNull, onUpdate: Cascade)
   children          Territory[] @relation("TerritoryHierarchy")
+  
+  // Administrateur responsable de la zone
   admin             User?       @relation("TerritoryAdmin", fields: [adminId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  
+  // Users ayant ce territoire comme "base" (peu utilisé, legacy)
   users             User[]      @relation("UserTerritory")
+  
+  // Vendeurs (REP) assignés à travailler dans ce secteur (usage principal)
   assignedUsers     User[]      @relation("UserAssignedSector")
+  
+  // PDV rattachés au territoire (zone large)
   outletsTerritory  Outlet[]    @relation("OutletTerritory")
+  
+  // PDV rattachés au secteur (zone de travail précise)
   outletsSector     Outlet[]    @relation("OutletSector")
+  
+  // Plans de route utilisant ce secteur
   routePlans        RoutePlan[] @relation("RoutePlanSector")
 
   @@index([parentId])
   @@index([adminId])
   @@index([level])
-  @@index([region])
-  @@index([commune])
   @@map("territory")
 }
 
@@ -176,15 +199,30 @@ model User {
   lastName          String           @map("last_name")
   role              RoleEnum
   status            UserStatusEnum   @default(ACTIVE)
-  territoryId       String           @map("territory_id") @db.Uuid
-  assignedSectorId  String?          @map("assigned_sector_id") @db.Uuid // Secteur assigné au vendeur
+  
+  // ============================================
+  // RATTACHEMENT TERRITORIAL
+  // ============================================
+  // Territoire "maison" de l'utilisateur (peu utilisé, peut être NULL pour SUP)
+  territoryId       String?          @map("territory_id") @db.Uuid
+  
+  // Secteur assigné au vendeur (REP uniquement) - zone de travail quotidien
+  assignedSectorId  String?          @map("assigned_sector_id") @db.Uuid
+  
+  // ============================================
+  // AUTHENTIFICATION & SÉCURITÉ
+  // ============================================
   passwordHash      String           @map("password_hash")
   lastLogin         DateTime?        @map("last_login") @db.Timestamptz
 
-  // Informations supplémentaires
+  // ============================================
+  // INFORMATIONS EMPLOYÉ
+  // ============================================
   phone        String?
   employeeId   String?          @map("employee_id")
   hireDate     DateTime?        @map("hire_date") @db.Date
+  
+  // Manager hiérarchique direct (ADMIN pour REP, SUP pour ADMIN)
   managerId    String?          @map("manager_id") @db.Uuid
   
   // Photo de profil (Cloudinary)
@@ -208,12 +246,22 @@ model User {
   createdAt    DateTime         @default(now()) @map("created_at") @db.Timestamptz
   updatedAt    DateTime         @updatedAt @map("updated_at") @db.Timestamptz
 
-  // Relations
-  territory           Territory      @relation("UserTerritory", fields: [territoryId], references: [id], onDelete: Restrict, onUpdate: Cascade)
-  assignedSector      Territory?     @relation("UserAssignedSector", fields: [assignedSectorId], references: [id], onDelete: SetNull, onUpdate: Cascade)
-  adminTerritories    Territory[]    @relation("TerritoryAdmin") // Territoires gérés par cet admin
-  manager             User?          @relation("UserManager", fields: [managerId], references: [id], onDelete: SetNull, onUpdate: Cascade)
-  subordinates        User[]         @relation("UserManager")
+  // ============================================
+  // RELATIONS
+  // ============================================
+  
+  // Territoire "maison" (peu utilisé)
+  territory           Territory?         @relation("UserTerritory", fields: [territoryId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  
+  // Secteur de travail assigné (REP uniquement)
+  assignedSector      Territory?         @relation("UserAssignedSector", fields: [assignedSectorId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  
+  // Territoires gérés (ADMIN uniquement) - relation inverse
+  adminTerritories    Territory[]        @relation("TerritoryAdmin")
+  
+  // Hiérarchie managériale (auto-référence User → User)
+  manager             User?              @relation("UserManager", fields: [managerId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  subordinates        User[]             @relation("UserManager")
   routePlans          RoutePlan[]
   visits              Visit[]
   orders              Order[]
@@ -225,9 +273,12 @@ model User {
   loginAttempts       LoginAttempt[]
   refreshTokens       RefreshToken[]
 
+  // Index pour optimisation des requêtes
   @@index([territoryId])
   @@index([assignedSectorId])
-  @@index([managerId])
+  @@index([managerId])  // ← Nouveau : pour les requêtes hiérarchiques
+  @@index([email])
+  @@index([role, status])  // ← Nouveau : pour filtrer les users actifs par rôle
   @@index([role])
   @@map("user")
 }

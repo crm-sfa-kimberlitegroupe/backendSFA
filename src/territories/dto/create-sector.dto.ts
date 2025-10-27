@@ -16,4 +16,8 @@ export class CreateSectorDto {
   @IsUUID()
   @IsOptional()
   parentId?: string; // ID du territoire parent (ZONE)
+
+  @IsUUID()
+  @IsOptional()
+  createdBy?: string; // ID de l'admin qui crée le secteur
 }

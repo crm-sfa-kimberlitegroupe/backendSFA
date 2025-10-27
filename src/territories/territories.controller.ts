@@ -3,6 +3,7 @@ import {
   Get,
   Post,
   Put,
+  Patch,
   Delete,
   Body,
   Param,
@@ -19,6 +20,7 @@ import { AssignOutletsToSectorDto } from './dto/assign-outlets-to-sector.dto';
 import { AssignSectorToVendorDto } from './dto/assign-sector-to-vendor.dto';
 import { AssignOutletsToVendorDto } from './dto/assign-outlets-to-vendor.dto';
 import { RemoveOutletsFromSectorDto } from './dto/remove-outlets-from-sector.dto';
+import { AssignAdminDto } from './dto/assign-admin.dto';
 
 @Controller('territories')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -245,6 +247,92 @@ export class TerritoriesController {
       success: true,
       data: vendors,
       message: 'Vendeurs avec secteurs récupérés avec succès',
+    };
+  }
+
+  /**
+   * GET /territories/:id/geo-info
+   * Récupérer les informations géographiques d'un territoire (ADMIN/SUP uniquement)
+   */
+  @Get(':id/geo-info')
+  @Roles(RoleEnum.ADMIN, RoleEnum.SUP)
+  async getTerritoryGeoInfo(@Param('id') id: string) {
+    const geoInfo = await this.territoriesService.getTerritoryGeoInfo(id);
+    return {
+      success: true,
+      data: geoInfo,
+      message: 'Informations géographiques récupérées avec succès',
+    };
+  }
+
+  /**
+   * GET /territories/admins/available
+   * Récupérer la liste des administrateurs disponibles (SUP uniquement)
+   */
+  @Get('admins/available')
+  @Roles(RoleEnum.SUP)
+  async getAvailableAdmins(@Query('excludeTerritoryId') excludeTerritoryId?: string) {
+    const admins = await this.territoriesService.getAvailableAdmins(excludeTerritoryId);
+    return {
+      success: true,
+      data: admins,
+      message: 'Administrateurs disponibles récupérés avec succès',
+    };
+  }
+
+  /**
+   * PATCH /territories/:id/assign-admin
+   * Assigner un administrateur à un territoire (première assignation - SUP uniquement)
+   */
+  @Patch(':id/assign-admin')
+  @Roles(RoleEnum.SUP)
+  async assignAdmin(@Param('id') territoryId: string, @Body() dto: AssignAdminDto) {
+    const territory = await this.territoriesService.assignTerritoryAdmin(
+      territoryId,
+      dto.adminId,
+    );
+    return {
+      success: true,
+      data: territory,
+      message: 'Administrateur assigné au territoire avec succès',
+    };
+  }
+
+  /**
+   * PATCH /territories/:id/reassign-admin
+   * Réassigner un administrateur à un territoire (changement - SUP uniquement)
+   * Met à jour atomiquement le territoire et tous les vendeurs associés
+   */
+  @Patch(':id/reassign-admin')
+  @Roles(RoleEnum.SUP)
+  async reassignAdmin(
+    @Param('id') territoryId: string,
+    @Body() dto: AssignAdminDto,
+  ) {
+    const territory = await this.territoriesService.reassignTerritoryAdmin(
+      territoryId,
+      dto.adminId,
+    );
+    return {
+      success: true,
+      data: territory,
+      message:
+        'Administrateur réassigné avec succès. Les vendeurs ont été mis à jour.',
+    };
+  }
+
+  /**
+   * DELETE /territories/:id/remove-admin
+   * Retirer l'administrateur d'un territoire (SUP uniquement)
+   */
+  @Delete(':id/remove-admin')
+  @Roles(RoleEnum.SUP)
+  async removeAdmin(@Param('id') territoryId: string) {
+    const territory = await this.territoriesService.removeTerritoryAdmin(territoryId);
+    return {
+      success: true,
+      data: territory,
+      message: 'Administrateur retiré du territoire avec succès',
     };
   }
 }

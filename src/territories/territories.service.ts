@@ -17,6 +17,14 @@ export interface Territory {
   code: string;
 }
 
+export interface TerritoryGeoInfo {
+  regions: string[];
+  communes: string[];
+  villes: string[];
+  quartiers: string[];
+  codesPostaux: string[];
+}
+
 @Injectable()
 export class TerritoriesService {
   constructor(private prisma: PrismaService) {}
@@ -35,11 +43,11 @@ export class TerritoriesService {
         parentId: true,
 
         // Informations géographiques
-        region: true,
-        commune: true,
-        ville: true,
-        quartier: true,
-        codePostal: true,
+        regions: true,
+        communes: true,
+        villes: true,
+        quartiers: true,
+        codesPostaux: true,
         lat: true,
         lng: true,
 
@@ -129,17 +137,48 @@ export class TerritoriesService {
       densitePopulation = data.population / data.superficie;
     }
 
+    // Si un adminId est fourni, vérifier qu'il existe et qu'il est ADMIN
+    if (data.adminId) {
+      const admin = await this.prisma.user.findUnique({
+        where: { id: data.adminId },
+      });
+
+      if (!admin) {
+        throw new NotFoundException(
+          `Administrateur avec l'ID ${data.adminId} introuvable`,
+        );
+      }
+
+      if (admin.role !== 'ADMIN') {
+        throw new BadRequestException(
+          'Seul un utilisateur avec le rôle ADMIN peut être assigné à un territoire',
+        );
+      }
+
+      // Vérifier que l'admin n'a pas déjà un territoire assigné
+      const existingAssignment = await this.prisma.territory.findFirst({
+        where: { adminId: data.adminId },
+      });
+
+      if (existingAssignment) {
+        throw new BadRequestException(
+          `Cet administrateur gère déjà le territoire "${existingAssignment.name}"`,
+        );
+      }
+    }
+
     // Créer le territoire
     const territory = await this.prisma.territory.create({
       data: {
         code,
         name,
         level: TerritoryLevel.ZONE,
-        region: data.region || null,
-        commune: data.commune || null,
-        ville: data.ville || null,
-        quartier: data.quartier || null,
-        codePostal: data.codePostal || null,
+        adminId: data.adminId || null,
+        regions: data.regions || [],
+        communes: data.communes || [],
+        villes: data.villes || [],
+        quartiers: data.quartiers || [],
+        codesPostaux: data.codesPostaux || [],
         lat: data.lat || null,
         lng: data.lng || null,
         population: data.population || null,
@@ -182,11 +221,11 @@ export class TerritoriesService {
       where: { id },
       data: {
         name: data.name || existingTerritory.name,
-        region: data.region !== undefined ? data.region : existingTerritory.region,
-        commune: data.commune !== undefined ? data.commune : existingTerritory.commune,
-        ville: data.ville !== undefined ? data.ville : existingTerritory.ville,
-        quartier: data.quartier !== undefined ? data.quartier : existingTerritory.quartier,
-        codePostal: data.codePostal !== undefined ? data.codePostal : existingTerritory.codePostal,
+        regions: data.regions !== undefined ? data.regions : existingTerritory.regions,
+        communes: data.communes !== undefined ? data.communes : existingTerritory.communes,
+        villes: data.villes !== undefined ? data.villes : existingTerritory.villes,
+        quartiers: data.quartiers !== undefined ? data.quartiers : existingTerritory.quartiers,
+        codesPostaux: data.codesPostaux !== undefined ? data.codesPostaux : existingTerritory.codesPostaux,
         lat: data.lat !== undefined ? data.lat : existingTerritory.lat,
         lng: data.lng !== undefined ? data.lng : existingTerritory.lng,
         population: data.population !== undefined ? data.population : existingTerritory.population,
@@ -228,7 +267,7 @@ export class TerritoriesService {
    * Un secteur est un territoire de niveau SECTEUR
    */
   async createSector(createSectorDto: CreateSectorDto) {
-    const { code, name, level, parentId } = createSectorDto;
+    const { code, name, level, parentId, createdBy } = createSectorDto;
 
     // Vérifier que le code n'existe pas déjà
     const existingSector = await this.prisma.territory.findUnique({
@@ -248,6 +287,7 @@ export class TerritoriesService {
         name,
         level: (level as TerritoryLevel) || TerritoryLevel.SECTEUR,
         parentId: parentId || null,
+        createdBy: createdBy || null, // 👤 ID de l'admin créateur
       },
       include: {
         parent: true,
@@ -746,6 +786,304 @@ export class TerritoriesService {
     });
 
     return vendors;
+  }
+
+  /**
+   * 🗺️ Récupérer les informations géographiques d'un territoire
+   * Retourne toutes les valeurs géographiques uniques du territoire et de ses enfants
+   */
+  async getTerritoryGeoInfo(territoryId: string): Promise<TerritoryGeoInfo> {
+    const territory = await this.prisma.territory.findUnique({
+      where: { id: territoryId },
+      select: {
+        regions: true,
+        communes: true,
+        villes: true,
+        quartiers: true,
+        codesPostaux: true,
+        children: {
+          select: {
+            regions: true,
+            communes: true,
+            villes: true,
+            quartiers: true,
+            codesPostaux: true,
+          },
+        },
+      },
+    });
+
+    if (!territory) {
+      throw new NotFoundException(`Territoire ${territoryId} introuvable`);
+    }
+
+    // Extraire toutes les valeurs uniques (territoire parent + enfants)
+    const allTerritories = [territory, ...territory.children];
+    
+    // Combiner tous les tableaux et garder les valeurs uniques
+    const regions = [
+      ...new Set(allTerritories.flatMap((t) => t.regions)),
+    ].sort();
+    const communes = [
+      ...new Set(allTerritories.flatMap((t) => t.communes)),
+    ].sort();
+    const villes = [
+      ...new Set(allTerritories.flatMap((t) => t.villes)),
+    ].sort();
+    const quartiers = [
+      ...new Set(allTerritories.flatMap((t) => t.quartiers)),
+    ].sort();
+    const codesPostaux = [
+      ...new Set(allTerritories.flatMap((t) => t.codesPostaux)),
+    ].sort();
+
+    return {
+      regions,
+      communes,
+      villes,
+      quartiers,
+      codesPostaux,
+    };
+  }
+
+  /**
+   * Assigner un admin à un territoire (première assignation)
+   */
+  async assignTerritoryAdmin(territoryId: string, adminId: string) {
+    // Vérifier que le territoire existe
+    const territory = await this.prisma.territory.findUnique({
+      where: { id: territoryId },
+    });
+
+    if (!territory) {
+      throw new NotFoundException(
+        `Territoire avec l'ID ${territoryId} introuvable`,
+      );
+    }
+
+    // Vérifier que le territoire n'a pas déjà un admin
+    if (territory.adminId) {
+      throw new BadRequestException(
+        `Ce territoire a déjà un administrateur assigné. Utilisez la réassignation.`,
+      );
+    }
+
+    // Vérifier que l'admin existe et a le bon rôle
+    const admin = await this.prisma.user.findUnique({
+      where: { id: adminId },
+    });
+
+    if (!admin) {
+      throw new NotFoundException(
+        `Administrateur avec l'ID ${adminId} introuvable`,
+      );
+    }
+
+    if (admin.role !== 'ADMIN') {
+      throw new BadRequestException(
+        'Seul un utilisateur avec le rôle ADMIN peut être assigné à un territoire',
+      );
+    }
+
+    // Vérifier que l'admin n'a pas déjà un territoire
+    const existingAssignment = await this.prisma.territory.findFirst({
+      where: { adminId },
+    });
+
+    if (existingAssignment) {
+      throw new BadRequestException(
+        `Cet administrateur gère déjà le territoire "${existingAssignment.name}"`,
+      );
+    }
+
+    // Assigner l'admin au territoire
+    const updatedTerritory = await this.prisma.territory.update({
+      where: { id: territoryId },
+      data: { adminId },
+      include: {
+        admin: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+          },
+        },
+      },
+    });
+
+    return updatedTerritory;
+  }
+
+  /**
+   * Réassigner un admin à un territoire (changement d'admin)
+   * Avec transaction pour mettre à jour aussi les vendeurs
+   */
+  async reassignTerritoryAdmin(territoryId: string, newAdminId: string) {
+    // Vérifier que le territoire existe
+    const territory = await this.prisma.territory.findUnique({
+      where: { id: territoryId },
+      include: {
+        users: {
+          where: { role: 'REP' },
+          select: { id: true, firstName: true, lastName: true },
+        },
+      },
+    });
+
+    if (!territory) {
+      throw new NotFoundException(
+        `Territoire avec l'ID ${territoryId} introuvable`,
+      );
+    }
+
+    // Vérifier que le nouvel admin existe et a le bon rôle
+    const newAdmin = await this.prisma.user.findUnique({
+      where: { id: newAdminId },
+    });
+
+    if (!newAdmin) {
+      throw new NotFoundException(
+        `Administrateur avec l'ID ${newAdminId} introuvable`,
+      );
+    }
+
+    if (newAdmin.role !== 'ADMIN') {
+      throw new BadRequestException(
+        'Seul un utilisateur avec le rôle ADMIN peut être assigné à un territoire',
+      );
+    }
+
+    // Vérifier que le nouvel admin n'a pas déjà un territoire
+    const existingAssignment = await this.prisma.territory.findFirst({
+      where: { 
+        adminId: newAdminId,
+        id: { not: territoryId }, // Exclure le territoire actuel
+      },
+    });
+
+    if (existingAssignment) {
+      throw new BadRequestException(
+        `Cet administrateur gère déjà le territoire "${existingAssignment.name}"`,
+      );
+    }
+
+    // Transaction atomique : tout réussit ou tout échoue
+    const result = await this.prisma.$transaction(async (prisma) => {
+      // 1. Mettre à jour l'admin du territoire
+      const updatedTerritory = await prisma.territory.update({
+        where: { id: territoryId },
+        data: { adminId: newAdminId },
+        include: {
+          admin: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              email: true,
+            },
+          },
+        },
+      });
+
+      // 2. Mettre à jour le managerId de tous les vendeurs (REP) de ce territoire
+      await prisma.user.updateMany({
+        where: {
+          territoryId,
+          role: 'REP',
+        },
+        data: {
+          managerId: newAdminId,
+        },
+      });
+
+      // 3. Logger l'action (optionnel mais recommandé)
+      await prisma.auditLog.create({
+        data: {
+          action: 'TERRITORY_ADMIN_REASSIGNED',
+          entity: 'Territory',
+          entityId: territoryId,
+          diff: {
+            oldAdminId: territory.adminId,
+            newAdminId: newAdminId,
+            affectedVendors: territory.users.length,
+          },
+        },
+      });
+
+      return updatedTerritory;
+    });
+
+    return result;
+  }
+
+  /**
+   * Retirer l'admin d'un territoire
+   */
+  async removeTerritoryAdmin(territoryId: string) {
+    // Vérifier que le territoire existe
+    const territory = await this.prisma.territory.findUnique({
+      where: { id: territoryId },
+    });
+
+    if (!territory) {
+      throw new NotFoundException(
+        `Territoire avec l'ID ${territoryId} introuvable`,
+      );
+    }
+
+    if (!territory.adminId) {
+      throw new BadRequestException(
+        'Ce territoire n\'a pas d\'administrateur assigné',
+      );
+    }
+
+    // Retirer l'admin
+    const updatedTerritory = await this.prisma.territory.update({
+      where: { id: territoryId },
+      data: { adminId: null },
+    });
+
+    return updatedTerritory;
+  }
+
+  /**
+   * Obtenir la liste des admins disponibles (sans territoire ou pour réassignation)
+   */
+  async getAvailableAdmins(excludeTerritoryId?: string) {
+    const admins = await this.prisma.user.findMany({
+      where: {
+        role: 'ADMIN',
+        status: 'ACTIVE',
+        OR: [
+          // ADMINs qui ne gèrent aucun territoire
+          { adminTerritories: { none: {} } },
+          // OU l'admin qui gère le territoire actuel (pour réassignation)
+          ...(excludeTerritoryId
+            ? [{ adminTerritories: { some: { id: excludeTerritoryId } } }]
+            : []),
+        ],
+      },
+      select: {
+        id: true,
+        firstName: true,
+        lastName: true,
+        email: true,
+        role: true,
+        adminTerritories: {
+          select: {
+            id: true,
+            name: true,
+            code: true,
+          },
+        },
+      },
+      orderBy: {
+        firstName: 'asc',
+      },
+    });
+
+    return admins;
   }
 }
 

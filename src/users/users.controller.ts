@@ -60,6 +60,19 @@ export class UsersController {
   }
 
   /**
+   * Récupérer tous les vendeurs et administrateurs pour la page Team
+   */
+  @Get('team/all')
+  async getTeamMembers() {
+    const teamMembers = await this.usersService.getTeamMembers();
+    return {
+      success: true,
+      data: teamMembers,
+      message: "Membres de l'équipe récupérés avec succès",
+    };
+  }
+
+  /**
    * Récupérer un utilisateur par ID
    */
   @Get(':id')

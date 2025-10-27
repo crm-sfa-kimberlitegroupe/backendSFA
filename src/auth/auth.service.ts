@@ -176,7 +176,14 @@ export class AuthService {
     const userWithRelations = await this.prisma.user.findUnique({
       where: { id: user.id },
       include: {
-        territory: true,
+        territory: {
+          select: {
+            id: true,
+            code: true,
+            name: true,
+            level: true,
+          },
+        },
         manager: {
           select: {
             firstName: true,

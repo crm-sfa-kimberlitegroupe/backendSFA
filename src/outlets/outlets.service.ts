@@ -65,11 +65,11 @@ export class OutletsService {
     const territory = await this.prisma.territory.findUnique({
       where: { id: territoryId },
       select: {
-        region: true,
-        commune: true,
-        ville: true,
-        quartier: true,
-        codePostal: true,
+        regions: true,
+        communes: true,
+        villes: true,
+        quartiers: true,
+        codesPostaux: true,
       },
     });
 
@@ -90,13 +90,13 @@ export class OutletsService {
         openHours: createOutletDto.openHours || {},
         status: createOutletDto.status || OutletStatusEnum.PENDING,
         territoryId: territoryId,
-        sectorId: sectorId || undefined,  // ⭐ Assigner le secteur hérité
-        // 🗺️ Copier les informations géographiques du territoire
-        region: territory.region || undefined,
-        commune: territory.commune || undefined,
-        ville: territory.ville || undefined,
-        quartier: territory.quartier || undefined,
-        codePostal: territory.codePostal || undefined,
+        sectorId: sectorId || undefined, // ⭐ Assigner le secteur hérité
+        // 🗺️ Copier les informations géographiques du territoire (prendre le premier de chaque tableau)
+        region: territory.regions?.[0] || undefined,
+        commune: territory.communes?.[0] || undefined,
+        ville: territory.villes?.[0] || undefined,
+        quartier: territory.quartiers?.[0] || undefined,
+        codePostal: territory.codesPostaux?.[0] || undefined,
 
         proposedBy: userId || createOutletDto.proposedBy || undefined,
         validationComment: createOutletDto.validationComment || undefined,
@@ -105,7 +105,14 @@ export class OutletsService {
           {}) as Prisma.InputJsonValue,
       },
       include: {
-        territory: true,
+        territory: {
+          select: {
+            id: true,
+            code: true,
+            name: true,
+            level: true,
+          },
+        },
         proposer: {
           select: {
             id: true,
@@ -186,7 +193,14 @@ export class OutletsService {
     const outlets = await this.prisma.outlet.findMany({
       where,
       include: {
-        territory: true,
+        territory: {
+          select: {
+            id: true,
+            code: true,
+            name: true,
+            level: true,
+          },
+        },
         proposer: {
           select: {
             id: true,
@@ -229,7 +243,14 @@ export class OutletsService {
     const outlet = await this.prisma.outlet.findUnique({
       where: { id },
       include: {
-        territory: true,
+        territory: {
+          select: {
+            id: true,
+            code: true,
+            name: true,
+            level: true,
+          },
+        },
         proposer: {
           select: {
             id: true,
@@ -273,7 +294,14 @@ export class OutletsService {
         updatedAt: new Date(),
       } as Prisma.OutletUpdateInput,
       include: {
-        territory: true,
+        territory: {
+          select: {
+            id: true,
+            code: true,
+            name: true,
+            level: true,
+          },
+        },
         proposer: {
           select: {
             id: true,

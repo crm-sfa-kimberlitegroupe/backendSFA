@@ -250,6 +250,28 @@ export class UsersService {
     return managers;
   }
 
+  async getTeamMembers(): Promise<User[]> {
+    const users = await this.prisma.user.findMany({
+      where: {
+        role: {
+          in: ['REP', 'ADMIN'],
+        },
+      },
+      include: {
+        territory: {
+          select: {
+            name: true,
+          },
+        },
+      },
+      orderBy: {
+        firstName: 'asc',
+      },
+    });
+
+    return users.map((user) => this.mapPrismaUserToEntity(user));
+  }
+
   async update(id: string, updateUserDto: UpdateUserDto): Promise<User> {
     // Vérifier si l'utilisateur existe
     const existingUser = await this.prisma.user.findUnique({

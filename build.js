@@ -40,6 +40,12 @@ try {
 
   // Étape 4: Build TypeScript
   run('npx nest build', 'Build NestJS (TypeScript → JavaScript)');
+  
+  // Étape 4.5: Vérification intermédiaire
+  console.log('\n🔍 Vérification du build TypeScript...');
+  if (!fs.existsSync('dist')) {
+    throw new Error('Le dossier dist n\'a pas été créé par nest build');
+  }
 
   // Étape 5: Vérification
   console.log('\n📂 Vérification du build...');

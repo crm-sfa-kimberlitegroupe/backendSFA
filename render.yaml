@@ -6,7 +6,7 @@ services:
     region: oregon # Même région que votre base de données
     plan: free # ou starter, standard selon vos besoins
     buildCommand: node build.js
-    startCommand: npm run start:prod
+    startCommand: node start.js
     # Augmenter la mémoire disponible pour Node.js
     maxMemoryMB: 512
     envVars:

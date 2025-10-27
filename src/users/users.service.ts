@@ -50,7 +50,7 @@ export class UsersService {
         // Si le créateur est ADMIN et que le nouvel utilisateur est REP
         if (creator.role === 'ADMIN' && createUserDto.role === 'REP') {
           // Le vendeur hérite automatiquement du territoire (ZONE) de l'admin
-          if (!territoryId) {
+          if (!territoryId && creator.territoryId) {
             territoryId = creator.territoryId;
           }
 
@@ -423,7 +423,7 @@ export class UsersService {
     // Compter le nombre total de PDV dans le territoire de l'utilisateur
     const totalOutlets = await this.prisma.outlet.count({
       where: {
-        territoryId: user.territoryId,
+        ...(user.territoryId && { territoryId: user.territoryId }),
         status: 'APPROVED',
       },
     });

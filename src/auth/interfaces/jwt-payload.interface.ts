@@ -18,9 +18,9 @@ export interface JwtPayload {
   role: string;
 
   /**
-   * ID du territoire de l'utilisateur
+   * ID du territoire de l'utilisateur (optionnel, NULL pour les SUP)
    */
-  territoryId: string;
+  territoryId?: string;
 
   /**
    * Timestamp de création du token

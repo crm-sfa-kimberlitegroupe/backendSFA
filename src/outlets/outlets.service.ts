@@ -46,7 +46,9 @@ export class OutletsService {
       });
       if (user) {
         // Le PDV hérite automatiquement du territoire ET du secteur du vendeur
-        territoryId = user.territoryId;
+        if (user.territoryId) {
+          territoryId = user.territoryId;
+        }
 
         // ⭐ HÉRITAGE AUTOMATIQUE DU SECTEUR
         // Si le vendeur a un secteur assigné, le PDV hérite de ce secteur

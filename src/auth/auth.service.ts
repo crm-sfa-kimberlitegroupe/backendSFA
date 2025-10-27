@@ -516,7 +516,7 @@ export class AuthService {
     userId: string,
     email: string,
     role: string,
-    territoryId: string,
+    territoryId: string | null,
     ip?: string,
     userAgent?: string,
   ): Promise<{ accessToken: string; refreshToken: string }> {
@@ -524,7 +524,7 @@ export class AuthService {
       sub: userId,
       email,
       role,
-      territoryId,
+      territoryId: territoryId ?? undefined, // Convertir null en undefined pour JWT
     };
 
     const accessToken = this.jwtService.sign(payload, {

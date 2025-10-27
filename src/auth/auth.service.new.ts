@@ -58,7 +58,7 @@ export class AuthService {
       user.id,
       user.email,
       user.role,
-      user.territoryId || '',
+      user.territoryId,
     );
     const userResponse = this.mapToUserResponse(user);
 
@@ -152,7 +152,7 @@ export class AuthService {
       user.id,
       user.email,
       user.role,
-      user.territoryId || '',
+      user.territoryId,
       ip,
       userAgent,
     );
@@ -293,7 +293,7 @@ export class AuthService {
       success: true,
       message: 'QR code généré avec succès',
       qrCode: qrCodeUrl,
-      secret: secret.base32!,
+      secret: secret.base32,
     };
   }
 
@@ -479,7 +479,7 @@ export class AuthService {
     userId: string,
     email: string,
     role: string,
-    territoryId: string,
+    territoryId: string | null | undefined,
     ip?: string,
     userAgent?: string,
   ): Promise<{ accessToken: string; refreshToken: string }> {
@@ -487,7 +487,7 @@ export class AuthService {
       sub: userId,
       email,
       role,
-      territoryId,
+      territoryId: territoryId ?? undefined, // Convertir null en undefined pour JWT
     };
 
     const accessToken = this.jwtService.sign(payload, {

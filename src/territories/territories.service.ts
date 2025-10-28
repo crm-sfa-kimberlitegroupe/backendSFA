@@ -766,16 +766,11 @@ export class TerritoriesService {
         outletsSector: {
           select: {
             id: true,
-            outlet: {
-              select: {
-                id: true,
-                name: true,
-                code: true,
-                address: true,
-                lat: true,
-                lng: true,
-              },
-            },
+            name: true,
+            code: true,
+            address: true,
+            lat: true,
+            lng: true,
           },
         },
         assignedUsers: {

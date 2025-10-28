@@ -227,7 +227,8 @@ export class TerritoriesController {
   @Delete('vendors/:vendorId/sector')
   @Roles(RoleEnum.ADMIN)
   async removeSectorFromVendor(@Param('vendorId') vendorId: string) {
-    const result = await this.territoriesService.removeSectorFromVendor(vendorId);
+    const result =
+      await this.territoriesService.removeSectorFromVendor(vendorId);
     return {
       success: true,
       data: result,
@@ -271,8 +272,12 @@ export class TerritoriesController {
    */
   @Get('admins/available')
   @Roles(RoleEnum.SUP)
-  async getAvailableAdmins(@Query('excludeTerritoryId') excludeTerritoryId?: string) {
-    const admins = await this.territoriesService.getAvailableAdmins(excludeTerritoryId);
+  async getAvailableAdmins(
+    @Query('excludeTerritoryId')
+    excludeTerritoryId?: string,
+  ) {
+    const admins =
+      await this.territoriesService.getAvailableAdmins(excludeTerritoryId);
     return {
       success: true,
       data: admins,
@@ -286,7 +291,10 @@ export class TerritoriesController {
    */
   @Patch(':id/assign-admin')
   @Roles(RoleEnum.SUP)
-  async assignAdmin(@Param('id') territoryId: string, @Body() dto: AssignAdminDto) {
+  async assignAdmin(
+    @Param('id') territoryId: string,
+    @Body() dto: AssignAdminDto,
+  ) {
     const territory = await this.territoriesService.assignTerritoryAdmin(
       territoryId,
       dto.adminId,
@@ -328,7 +336,8 @@ export class TerritoriesController {
   @Delete(':id/remove-admin')
   @Roles(RoleEnum.SUP)
   async removeAdmin(@Param('id') territoryId: string) {
-    const territory = await this.territoriesService.removeTerritoryAdmin(territoryId);
+    const territory =
+      await this.territoriesService.removeTerritoryAdmin(territoryId);
     return {
       success: true,
       data: territory,
@@ -376,3 +385,4 @@ export class TerritoriesController {
   async getVendorAssignedSector(@Param('vendorId') vendorId: string) {
     return this.territoriesService.getVendorAssignedSector(vendorId);
   }
+}

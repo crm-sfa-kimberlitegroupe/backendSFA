@@ -51,6 +51,8 @@ try {
   console.log('\n📂 Vérification du build...');
   const distPath = path.join(process.cwd(), 'dist', 'main.js');
   
+  console.log(`🔍 Recherche de: ${distPath}`);
+  
   if (fs.existsSync(distPath)) {
     const stats = fs.statSync(distPath);
     console.log('✅ LE BUILD A RÉUSSI !');
@@ -72,11 +74,33 @@ try {
   } else {
     console.error('\n❌ ERREUR CRITIQUE: dist/main.js N\'EXISTE PAS');
     console.error('📂 Contenu du répertoire actuel:');
-    execSync('ls -la', { stdio: 'inherit' });
+    
+    try {
+      const currentFiles = fs.readdirSync('.');
+      currentFiles.forEach(file => {
+        const stats = fs.statSync(file);
+        const type = stats.isDirectory() ? 'DIR' : 'FILE';
+        const size = stats.isDirectory() ? '' : ` (${(stats.size / 1024).toFixed(2)} KB)`;
+        console.error(`   - ${file} [${type}]${size}`);
+      });
+    } catch (err) {
+      console.error('   Erreur lors de la lecture du répertoire:', err.message);
+    }
     
     if (fs.existsSync('dist')) {
       console.error('\n📂 Contenu de dist/:');
-      execSync('ls -la dist/', { stdio: 'inherit' });
+      try {
+        const distFiles = fs.readdirSync('dist');
+        distFiles.forEach(file => {
+          const filePath = path.join('dist', file);
+          const stats = fs.statSync(filePath);
+          const type = stats.isDirectory() ? 'DIR' : 'FILE';
+          const size = stats.isDirectory() ? '' : ` (${(stats.size / 1024).toFixed(2)} KB)`;
+          console.error(`   - ${file} [${type}]${size}`);
+        });
+      } catch (err) {
+        console.error('   Erreur lors de la lecture de dist/:', err.message);
+      }
     } else {
       console.error('\n❌ Le dossier dist/ n\'a pas été créé');
     }

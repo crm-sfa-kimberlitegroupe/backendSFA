@@ -657,7 +657,7 @@ export class TerritoriesService {
     });
 
     if (outlets.length !== outletIds.length) {
-      throw new BadRequestException('Certains PDV n\'existent pas');
+      throw new BadRequestException("Certains PDV n'existent pas");
     }
 
     // Vérifier que tous les PDV sont dans le même territoire que le vendeur
@@ -875,7 +875,7 @@ export class TerritoriesService {
 
     // Extraire toutes les valeurs uniques (territoire parent + enfants)
     const allTerritories = [territory, ...territory.children];
-    
+
     // Combiner tous les tableaux et garder les valeurs uniques
     const regions = [
       ...new Set(allTerritories.flatMap((t) => t.regions)),
@@ -883,9 +883,7 @@ export class TerritoriesService {
     const communes = [
       ...new Set(allTerritories.flatMap((t) => t.communes)),
     ].sort();
-    const villes = [
-      ...new Set(allTerritories.flatMap((t) => t.villes)),
-    ].sort();
+    const villes = [...new Set(allTerritories.flatMap((t) => t.villes))].sort();
     const quartiers = [
       ...new Set(allTerritories.flatMap((t) => t.quartiers)),
     ].sort();
@@ -1090,7 +1088,7 @@ export class TerritoriesService {
 
     if (!territory.adminId) {
       throw new BadRequestException(
-        'Ce territoire n\'a pas d\'administrateur assigné',
+        "Ce territoire n'a pas d'administrateur assigné",
       );
     }
 
@@ -1178,9 +1176,12 @@ export class TerritoriesService {
       },
     });
 
-    if (existingAssignment && existingAssignment.assignedSectorId !== sectorId) {
+    if (
+      existingAssignment &&
+      existingAssignment.assignedSectorId !== sectorId
+    ) {
       throw new BadRequestException(
-        'Ce vendeur a déjà un secteur assigné. Désassignez-le d\'abord.',
+        "Ce vendeur a déjà un secteur assigné. Désassignez-le d'abord.",
       );
     }
 
@@ -1245,9 +1246,7 @@ export class TerritoriesService {
     }
 
     if (sector.assignedUsers.length === 0) {
-      throw new BadRequestException(
-        'Ce secteur n\'a pas de vendeur assigné',
-      );
+      throw new BadRequestException("Ce secteur n'a pas de vendeur assigné");
     }
 
     // Désassigner tous les vendeurs du secteur
@@ -1282,4 +1281,3 @@ export class TerritoriesService {
     return updatedSector;
   }
 }
-

@@ -743,6 +743,67 @@ export class TerritoriesService {
   }
 
   /**
+   * Récupérer le secteur assigné à un vendeur
+   */
+  async getVendorAssignedSector(vendorId: string) {
+    const sector = await this.prisma.territory.findFirst({
+      where: {
+        level: 'SECTEUR',
+        assignedUsers: {
+          some: {
+            id: vendorId,
+          },
+        },
+      },
+      include: {
+        parent: {
+          select: {
+            id: true,
+            name: true,
+            code: true,
+          },
+        },
+        outletsSector: {
+          select: {
+            id: true,
+            outlet: {
+              select: {
+                id: true,
+                name: true,
+                code: true,
+                address: true,
+                lat: true,
+                lng: true,
+              },
+            },
+          },
+        },
+        assignedUsers: {
+          where: {
+            id: vendorId,
+          },
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+          },
+        },
+      },
+    });
+
+    if (!sector) {
+      throw new NotFoundException('Aucun secteur assigné à ce vendeur');
+    }
+
+    return {
+      success: true,
+      data: sector,
+      message: 'Secteur assigné récupéré avec succès',
+    };
+  }
+
+  /**
    * Récupérer tous les vendeurs avec leurs secteurs assignés
    */
   async findAllVendorsWithSectors() {
@@ -1084,6 +1145,146 @@ export class TerritoriesService {
     });
 
     return admins;
+  }
+
+  /**
+   * Réassigner un vendeur à un secteur (changement)
+   */
+  async reassignSectorVendor(sectorId: string, newVendorId: string) {
+    // Vérifier que le secteur existe
+    const sector = await this.prisma.territory.findUnique({
+      where: { id: sectorId, level: TerritoryLevel.SECTEUR },
+      include: {
+        assignedUsers: true,
+        parent: true,
+      },
+    });
+
+    if (!sector) {
+      throw new NotFoundException(`Secteur avec l'ID ${sectorId} introuvable`);
+    }
+
+    // Vérifier que le nouveau vendeur existe et est actif
+    const newVendor = await this.prisma.user.findUnique({
+      where: { id: newVendorId, role: RoleEnum.REP, status: 'ACTIVE' },
+    });
+
+    if (!newVendor) {
+      throw new NotFoundException(
+        `Vendeur avec l'ID ${newVendorId} introuvable ou inactif`,
+      );
+    }
+
+    // Vérifier que le vendeur n'a pas déjà un secteur assigné
+    const existingAssignment = await this.prisma.user.findFirst({
+      where: {
+        id: newVendorId,
+        assignedSectorId: { not: null },
+      },
+    });
+
+    if (existingAssignment && existingAssignment.assignedSectorId !== sectorId) {
+      throw new BadRequestException(
+        'Ce vendeur a déjà un secteur assigné. Désassignez-le d\'abord.',
+      );
+    }
+
+    // Transaction pour réassigner
+    const result = await this.prisma.$transaction(async (prisma) => {
+      // 1. Désassigner l'ancien vendeur s'il y en a un
+      if (sector.assignedUsers.length > 0) {
+        await prisma.user.updateMany({
+          where: { assignedSectorId: sectorId },
+          data: { assignedSectorId: null },
+        });
+      }
+
+      // 2. Assigner le nouveau vendeur
+      await prisma.user.update({
+        where: { id: newVendorId },
+        data: { assignedSectorId: sectorId },
+      });
+
+      // 3. Retourner le secteur mis à jour
+      return prisma.territory.findUnique({
+        where: { id: sectorId },
+        include: {
+          parent: true,
+          assignedUsers: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              email: true,
+            },
+          },
+          outletsSector: {
+            select: {
+              id: true,
+              code: true,
+              name: true,
+            },
+          },
+        },
+      });
+    });
+
+    return result;
+  }
+
+  /**
+   * Désassigner un vendeur d'un secteur
+   */
+  async unassignSectorVendor(sectorId: string) {
+    // Vérifier que le secteur existe
+    const sector = await this.prisma.territory.findUnique({
+      where: { id: sectorId, level: TerritoryLevel.SECTEUR },
+      include: {
+        assignedUsers: true,
+        parent: true,
+      },
+    });
+
+    if (!sector) {
+      throw new NotFoundException(`Secteur avec l'ID ${sectorId} introuvable`);
+    }
+
+    if (sector.assignedUsers.length === 0) {
+      throw new BadRequestException(
+        'Ce secteur n\'a pas de vendeur assigné',
+      );
+    }
+
+    // Désassigner tous les vendeurs du secteur
+    await this.prisma.user.updateMany({
+      where: { assignedSectorId: sectorId },
+      data: { assignedSectorId: null },
+    });
+
+    // Retourner le secteur mis à jour
+    const updatedSector = await this.prisma.territory.findUnique({
+      where: { id: sectorId },
+      include: {
+        parent: true,
+        assignedUsers: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+          },
+        },
+        outletsSector: {
+          select: {
+            id: true,
+            code: true,
+            name: true,
+          },
+        },
+      },
+    });
+
+    return updatedSector;
   }
 }
 

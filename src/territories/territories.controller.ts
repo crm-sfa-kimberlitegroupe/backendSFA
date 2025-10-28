@@ -335,4 +335,44 @@ export class TerritoriesController {
       message: 'Administrateur retiré du territoire avec succès',
     };
   }
-}
+
+  /**
+   * PATCH /territories/sectors/:id/reassign-vendor
+   * Réassigner un vendeur à un secteur (changement - ADMIN uniquement)
+   */
+  @Patch('sectors/:id/reassign-vendor')
+  @Roles(RoleEnum.ADMIN)
+  async reassignSectorVendor(
+    @Param('id') sectorId: string,
+    @Body() dto: { vendorId: string },
+  ) {
+    const sector = await this.territoriesService.reassignSectorVendor(
+      sectorId,
+      dto.vendorId,
+    );
+    return {
+      success: true,
+      data: sector,
+      message: 'Vendeur réassigné au secteur avec succès',
+    };
+  }
+
+  /**
+   * DELETE /territories/sectors/:id/unassign-vendor
+   * Désassigner un vendeur d'un secteur (ADMIN uniquement)
+   */
+  @Delete('sectors/:id/unassign-vendor')
+  @Roles('ADMIN', 'SUP')
+  async unassignSectorVendor(@Param('id') sectorId: string) {
+    return this.territoriesService.unassignSectorVendor(sectorId);
+  }
+
+  /**
+   * GET /territories/vendors/:vendorId/assigned-sector
+   * Récupérer le secteur assigné à un vendeur (ADMIN, SUP, REP uniquement)
+   */
+  @Get('vendors/:vendorId/assigned-sector')
+  @Roles('ADMIN', 'SUP', 'REP')
+  async getVendorAssignedSector(@Param('vendorId') vendorId: string) {
+    return this.territoriesService.getVendorAssignedSector(vendorId);
+  }

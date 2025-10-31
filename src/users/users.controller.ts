@@ -156,6 +156,19 @@ export class UsersController {
   }
 
   /**
+   * Récupérer les informations du manager d'un utilisateur
+   */
+  @Get(':id/manager')
+  async getManager(@Param('id') id: string) {
+    const manager = await this.usersService.getManagerInfo(id);
+    return {
+      success: true,
+      data: manager,
+      message: 'Informations du manager récupérées avec succès',
+    };
+  }
+
+  /**
    * Upload de photo de profil
    */
   @Post(':id/upload-photo')

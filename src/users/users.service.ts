@@ -525,6 +525,50 @@ export class UsersService {
   }
 
   /**
+   * Récupérer les informations du manager d'un utilisateur
+   */
+  async getManagerInfo(userId: string): Promise<{
+    id: string;
+    firstName: string;
+    lastName: string;
+    email: string;
+    phone?: string | null;
+    role: string;
+    photoUrl?: string | null;
+  } | null> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      include: {
+        manager: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+            phone: true,
+            role: true,
+            photoUrl: true,
+          },
+        },
+      },
+    });
+
+    if (!user || !user.manager) {
+      return null;
+    }
+
+    return {
+      id: user.manager.id,
+      firstName: user.manager.firstName,
+      lastName: user.manager.lastName,
+      email: user.manager.email,
+      phone: user.manager.phone,
+      role: user.manager.role,
+      photoUrl: user.manager.photoUrl,
+    };
+  }
+
+  /**
    * Mapper un utilisateur Prisma vers l'entité User
    */
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

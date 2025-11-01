@@ -32,13 +32,12 @@ export class CreateUserDto {
   @IsString()
   territoryId?: string;
 
-  @IsOptional()
   @IsString()
-  phone?: string;
+  phone: string;
 
   @IsOptional()
   @IsString()
-  employeeId?: string;
+  matricule?: string;
 
   @IsOptional()
   @IsDateString()

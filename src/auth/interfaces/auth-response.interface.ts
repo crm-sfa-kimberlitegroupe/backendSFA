@@ -12,7 +12,7 @@ export interface UserResponse {
   territoryName?: string;
   photoUrl?: string;
   phone?: string;
-  employeeId?: string;
+  matricule?: string;
   hireDate?: string;
   manager?: string;
 }

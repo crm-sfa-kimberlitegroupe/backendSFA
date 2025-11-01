@@ -219,7 +219,7 @@ model User {
   // INFORMATIONS EMPLOYÉ
   // ============================================
   phone        String?
-  employeeId   String?          @map("employee_id")
+  matricule    String?          @map("matricule")
   hireDate     DateTime?        @map("hire_date") @db.Date
   
   // Manager hiérarchique direct (ADMIN pour REP, SUP pour ADMIN)

@@ -384,7 +384,7 @@ export class RoutesService {
   /**
    * Optimiser l'ordre des PDV avec l'algorithme du plus proche voisin
    */
-  private optimizeOutletOrder(outlets: any[]): string[] {
+  private nearestNeighborOptimization(outlets: any[]): string[] {
     if (outlets.length <= 1) {
       return outlets.map((o) => o.id);
     }
@@ -441,6 +441,157 @@ export class RoutesService {
   }
 
   /**
+   * Algorithme 2-opt pour améliorer une route existante
+   * Échange des segments pour réduire les croisements et la distance totale
+   */
+  private twoOptOptimization(outlets: any[], initialOrder: string[]): string[] {
+    if (outlets.length < 4) {
+      return initialOrder;
+    }
+
+    const outletMap = new Map(outlets.map(o => [o.id, o]));
+    let route = [...initialOrder];
+    let improved = true;
+    let maxIterations = 100;
+    let iteration = 0;
+
+    while (improved && iteration < maxIterations) {
+      improved = false;
+      iteration++;
+
+      for (let i = 1; i < route.length - 2; i++) {
+        for (let j = i + 1; j < route.length - 1; j++) {
+          const outlet1 = outletMap.get(route[i]);
+          const outlet2 = outletMap.get(route[i + 1]);
+          const outlet3 = outletMap.get(route[j]);
+          const outlet4 = outletMap.get(route[j + 1]);
+
+          if (!outlet1?.lat || !outlet2?.lat || !outlet3?.lat || !outlet4?.lat) {
+            continue;
+          }
+
+          // Distance actuelle
+          const currentDist =
+            this.calculateDistance(
+              Number(outlet1.lat),
+              Number(outlet1.lng),
+              Number(outlet2.lat),
+              Number(outlet2.lng),
+            ) +
+            this.calculateDistance(
+              Number(outlet3.lat),
+              Number(outlet3.lng),
+              Number(outlet4.lat),
+              Number(outlet4.lng),
+            );
+
+          // Distance après échange
+          const newDist =
+            this.calculateDistance(
+              Number(outlet1.lat),
+              Number(outlet1.lng),
+              Number(outlet3.lat),
+              Number(outlet3.lng),
+            ) +
+            this.calculateDistance(
+              Number(outlet2.lat),
+              Number(outlet2.lng),
+              Number(outlet4.lat),
+              Number(outlet4.lng),
+            );
+
+          // Si l'échange améliore, on l'applique
+          if (newDist < currentDist) {
+            // Inverser le segment entre i+1 et j
+            const newRoute = [
+              ...route.slice(0, i + 1),
+              ...route.slice(i + 1, j + 1).reverse(),
+              ...route.slice(j + 1),
+            ];
+            route = newRoute;
+            improved = true;
+          }
+        }
+      }
+    }
+
+    return route;
+  }
+
+  /**
+   * Calculer la distance totale d'une route
+   */
+  private calculateTotalDistance(outlets: any[], order: string[]): number {
+    const outletMap = new Map(outlets.map(o => [o.id, o]));
+    let totalDistance = 0;
+
+    for (let i = 0; i < order.length - 1; i++) {
+      const outlet1 = outletMap.get(order[i]);
+      const outlet2 = outletMap.get(order[i + 1]);
+
+      if (outlet1?.lat && outlet1?.lng && outlet2?.lat && outlet2?.lng) {
+        totalDistance += this.calculateDistance(
+          Number(outlet1.lat),
+          Number(outlet1.lng),
+          Number(outlet2.lat),
+          Number(outlet2.lng),
+        );
+      }
+    }
+
+    return totalDistance;
+  }
+
+  /**
+   * Estimer le temps total (déplacement + temps par PDV)
+   * @param distance Distance en km
+   * @param nbOutlets Nombre de PDV
+   * @param avgSpeed Vitesse moyenne en km/h (défaut: 30 km/h en ville)
+   * @param avgTimePerOutlet Temps moyen par PDV en minutes (défaut: 20 min)
+   */
+  private estimateTotalTime(
+    distance: number,
+    nbOutlets: number,
+    avgSpeed: number = 30,
+    avgTimePerOutlet: number = 20,
+  ): number {
+    const travelTimeHours = distance / avgSpeed;
+    const travelTimeMinutes = travelTimeHours * 60;
+    const outletTimeMinutes = nbOutlets * avgTimePerOutlet;
+    return Math.round(travelTimeMinutes + outletTimeMinutes);
+  }
+
+  /**
+   * Optimiser l'ordre des PDV avec algorithmes combinés
+   */
+  private optimizeOutletOrder(
+    outlets: any[],
+    useAdvancedOptimization: boolean = true,
+  ): { order: string[]; distance: number; estimatedTime: number } {
+    if (outlets.length <= 1) {
+      return {
+        order: outlets.map((o) => o.id),
+        distance: 0,
+        estimatedTime: outlets.length * 20,
+      };
+    }
+
+    // Phase 1: Plus proche voisin
+    let order = this.nearestNeighborOptimization(outlets);
+
+    // Phase 2: 2-opt si demandé
+    if (useAdvancedOptimization && outlets.length >= 4) {
+      order = this.twoOptOptimization(outlets, order);
+    }
+
+    // Calculer les métriques
+    const distance = this.calculateTotalDistance(outlets, order);
+    const estimatedTime = this.estimateTotalTime(distance, outlets.length);
+
+    return { order, distance, estimatedTime };
+  }
+
+  /**
    * Générer une route automatiquement avec optimisation
    */
   async generateRoute(data: {
@@ -448,8 +599,10 @@ export class RoutesService {
     date: string;
     outletIds?: string[];
     optimize?: boolean;
+    maxOutlets?: number;
+    maxDistance?: number;
   }) {
-    const { userId, date, outletIds, optimize = true } = data;
+    const { userId, date, outletIds, optimize = true, maxOutlets, maxDistance } = data;
 
     // Récupérer l'utilisateur et son secteur
     const vendorData = await this.getVendorSectorOutlets(userId);
@@ -465,17 +618,164 @@ export class RoutesService {
       throw new ForbiddenException('Aucun point de vente disponible');
     }
 
-    // Optimiser l'ordre si demandé
-    let orderedOutletIds = selectedOutlets.map((o) => o.id);
-    if (optimize) {
-      orderedOutletIds = this.optimizeOutletOrder(selectedOutlets);
+    // Limiter le nombre de PDV si maxOutlets est défini
+    if (maxOutlets && selectedOutlets.length > maxOutlets) {
+      selectedOutlets = selectedOutlets.slice(0, maxOutlets);
     }
 
-    // Créer la route
-    return this.create({
+    // Optimiser l'ordre si demandé
+    let orderedOutletIds: string[];
+    let routeDistance = 0;
+    let estimatedTime = 0;
+
+    if (optimize) {
+      const optimizationResult = this.optimizeOutletOrder(selectedOutlets, true);
+      orderedOutletIds = optimizationResult.order;
+      routeDistance = optimizationResult.distance;
+      estimatedTime = optimizationResult.estimatedTime;
+
+      // Vérifier la contrainte de distance maximale
+      if (maxDistance && routeDistance > maxDistance) {
+        throw new ForbiddenException(
+          `La distance totale (${routeDistance.toFixed(1)} km) dépasse la limite autorisée (${maxDistance} km)`,
+        );
+      }
+    } else {
+      orderedOutletIds = selectedOutlets.map((o) => o.id);
+    }
+
+    // Créer la route avec métadonnées
+    const route = await this.create({
       userId,
       date,
       outletIds: orderedOutletIds,
     });
+
+    // Retourner avec les métriques
+    return {
+      ...route,
+      metrics: {
+        totalDistance: routeDistance,
+        estimatedTime,
+        numberOfOutlets: orderedOutletIds.length,
+      },
+    };
+  }
+
+  /**
+   * Générer des routes pour plusieurs jours
+   */
+  async generateMultiDayRoutes(data: {
+    userId: string;
+    startDate: string;
+    numberOfDays: number;
+    outletsPerDay?: number;
+    optimize?: boolean;
+  }) {
+    const { userId, startDate, numberOfDays, outletsPerDay = 8, optimize = true } = data;
+
+    // Récupérer tous les outlets du secteur
+    const vendorData = await this.getVendorSectorOutlets(userId);
+    const allOutlets = vendorData.outlets;
+
+    if (allOutlets.length === 0) {
+      throw new ForbiddenException('Aucun point de vente disponible');
+    }
+
+    const routes = [];
+    const start = new Date(startDate);
+
+    // Distribuer les outlets sur plusieurs jours
+    for (let day = 0; day < numberOfDays; day++) {
+      const currentDate = new Date(start);
+      currentDate.setDate(start.getDate() + day);
+      const dateStr = currentDate.toISOString().split('T')[0];
+
+      // Vérifier si une route existe déjà
+      const existing = await this.prisma.routePlan.findFirst({
+        where: {
+          userId,
+          date: currentDate,
+        },
+      });
+
+      if (existing) {
+        continue; // Passer si une route existe déjà
+      }
+
+      // Sélectionner les outlets pour ce jour
+      const startIdx = day * outletsPerDay;
+      const endIdx = Math.min(startIdx + outletsPerDay, allOutlets.length);
+      const dayOutlets = allOutlets.slice(startIdx, endIdx);
+
+      if (dayOutlets.length === 0) {
+        break; // Plus d'outlets à assigner
+      }
+
+      // Générer la route pour ce jour
+      const route = await this.generateRoute({
+        userId,
+        date: dateStr,
+        outletIds: dayOutlets.map(o => o.id),
+        optimize,
+      });
+
+      routes.push(route);
+    }
+
+    return {
+      routes,
+      summary: {
+        totalRoutes: routes.length,
+        totalOutlets: routes.reduce((sum, r) => sum + (r.metrics?.numberOfOutlets || 0), 0),
+        totalDistance: routes.reduce((sum, r) => sum + (r.metrics?.totalDistance || 0), 0),
+        totalEstimatedTime: routes.reduce((sum, r) => sum + (r.metrics?.estimatedTime || 0), 0),
+      },
+    };
+  }
+
+  /**
+   * Obtenir les métriques d'une route existante
+   */
+  async getRouteMetrics(routeId: string) {
+    const route = await this.prisma.routePlan.findUnique({
+      where: { id: routeId },
+      include: {
+        routeStops: {
+          include: {
+            outlet: {
+              select: {
+                id: true,
+                lat: true,
+                lng: true,
+              },
+            },
+          },
+          orderBy: {
+            seq: 'asc',
+          },
+        },
+      },
+    });
+
+    if (!route) {
+      throw new NotFoundException('Route introuvable');
+    }
+
+    const outlets = route.routeStops
+      .map(stop => stop.outlet)
+      .filter(o => o.lat && o.lng);
+
+    const order = route.routeStops.map(stop => stop.outletId);
+    const distance = this.calculateTotalDistance(outlets, order);
+    const estimatedTime = this.estimateTotalTime(distance, route.routeStops.length);
+
+    return {
+      routeId: route.id,
+      totalDistance: distance,
+      estimatedTime,
+      numberOfOutlets: route.routeStops.length,
+      numberOfVisited: route.routeStops.filter(s => s.status === 'VISITED').length,
+    };
   }
 }

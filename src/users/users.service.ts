@@ -80,11 +80,13 @@ export class UsersService {
         passwordHash: hashedPassword,
         firstName: createUserDto.firstName,
         lastName: createUserDto.lastName,
-        role: (createUserDto.role as RoleEnum) || 'REP', // Rôle par défaut: REP
+        role: (createUserDto.role as RoleEnum) || 'REP',
         status: 'ACTIVE',
         territoryId: territoryId,
-        ...(managerId && { managerId }), // N'inclure managerId que s'il est défini
-        // Note: assignedSectorId peut être ajouté via update après création du vendeur
+        phone: createUserDto.phone,
+        matricule: createUserDto.matricule || null,
+        hireDate: createUserDto.hireDate ? new Date(createUserDto.hireDate) : null,
+        ...(managerId && { managerId }),
       },
     });
 
@@ -125,7 +127,7 @@ export class UsersService {
     isActive: boolean;
     phone: string | null;
     photoUrl: string | null;
-    employeeId: string | null;
+    matricule: string | null;
     hireDate: string | null;
     territory: string | null;
     territoryName: string | null;
@@ -162,7 +164,7 @@ export class UsersService {
       isActive: user.status === 'ACTIVE',
       phone: user.phone || null,
       photoUrl: user.photoUrl || null,
-      employeeId: user.employeeId || null,
+      matricule: (user.matricule as string | null) || null,
       hireDate: user.hireDate?.toISOString().split('T')[0] || null,
       territory: user.territory?.name || null,
       territoryName: user.territory?.name || null,
@@ -172,11 +174,49 @@ export class UsersService {
     };
   }
 
-  async findAll(currentUserId?: string): Promise<User[]> {
+  async findAll(currentUserId?: string): Promise<any[]> {
     // Si pas d'utilisateur connecté, retourner tous les utilisateurs (pour compatibilité)
     if (!currentUserId) {
-      const users = await this.prisma.user.findMany();
-      return users.map((user) => this.mapPrismaUserToEntity(user));
+      const users = await this.prisma.user.findMany({
+        select: {
+          id: true,
+          email: true,
+          firstName: true,
+          lastName: true,
+          role: true,
+          status: true,
+          phone: true,
+          matricule: true,
+          hireDate: true,
+          photoUrl: true,
+          lastLogin: true,
+          territoryId: true,
+          territory: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
+          assignedSectorId: true,
+          assignedSector: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
+          managerId: true,
+          manager: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+            },
+          },
+          createdAt: true,
+          updatedAt: true,
+        },
+      });
+      return users.map((user) => this.mapUserForDisplay(user));
     }
 
     // Récupérer l'utilisateur connecté
@@ -186,8 +226,46 @@ export class UsersService {
     });
 
     if (!currentUser) {
-      const users = await this.prisma.user.findMany();
-      return users.map((user) => this.mapPrismaUserToEntity(user));
+      const users = await this.prisma.user.findMany({
+        select: {
+          id: true,
+          email: true,
+          firstName: true,
+          lastName: true,
+          role: true,
+          status: true,
+          phone: true,
+          matricule: true,
+          hireDate: true,
+          photoUrl: true,
+          lastLogin: true,
+          territoryId: true,
+          territory: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
+          assignedSectorId: true,
+          assignedSector: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
+          managerId: true,
+          manager: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+            },
+          },
+          createdAt: true,
+          updatedAt: true,
+        },
+      });
+      return users.map((user) => this.mapUserForDisplay(user));
     }
 
     // Si l'utilisateur est ADMIN, il ne voit que les vendeurs qu'il a créés (managerId = son ID)
@@ -203,22 +281,103 @@ export class UsersService {
               name: true,
             },
           },
+          assignedSector: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
         },
       });
-      return users.map((user) => this.mapPrismaUserToEntity(user));
+      return users.map((user) => this.mapUserForDisplay(user));
     }
 
     // Si l'utilisateur est SUP (Manager), il voit tous les utilisateurs
     if (currentUser.role === 'SUP') {
-      const users = await this.prisma.user.findMany();
-      return users.map((user) => this.mapPrismaUserToEntity(user));
+      const users = await this.prisma.user.findMany({
+        select: {
+          id: true,
+          email: true,
+          firstName: true,
+          lastName: true,
+          role: true,
+          status: true,
+          phone: true,
+          matricule: true,
+          hireDate: true,
+          photoUrl: true,
+          lastLogin: true,
+          territoryId: true,
+          territory: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
+          assignedSectorId: true,
+          assignedSector: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
+          managerId: true,
+          manager: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+            },
+          },
+          createdAt: true,
+          updatedAt: true,
+        },
+      });
+      return users.map((user) => this.mapUserForDisplay(user));
     }
 
     // Pour les autres rôles (REP), ne retourner que l'utilisateur lui-même
     const users = await this.prisma.user.findMany({
       where: { id: currentUserId },
+      select: {
+        id: true,
+        email: true,
+        firstName: true,
+        lastName: true,
+        role: true,
+        status: true,
+        phone: true,
+        matricule: true,
+        hireDate: true,
+        photoUrl: true,
+        lastLogin: true,
+        territoryId: true,
+        territory: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+        assignedSectorId: true,
+        assignedSector: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+        managerId: true,
+        manager: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+          },
+        },
+        createdAt: true,
+        updatedAt: true,
+      },
     });
-    return users.map((user) => this.mapPrismaUserToEntity(user));
+    return users.map((user) => this.mapUserForDisplay(user));
   }
 
   async getManagers(): Promise<
@@ -569,6 +728,33 @@ export class UsersService {
   }
 
   /**
+   * Mapper un utilisateur Prisma pour l'affichage (avec tous les champs)
+   */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private mapUserForDisplay(prismaUser: any): any {
+    return {
+      id: prismaUser.id,
+      email: prismaUser.email,
+      firstName: prismaUser.firstName,
+      lastName: prismaUser.lastName,
+      role: prismaUser.role,
+      isActive: prismaUser.status === 'ACTIVE',
+      status: prismaUser.status,
+      territoryId: prismaUser.territoryId ?? null,
+      territory: prismaUser.territory?.name ?? null,
+      territoryName: prismaUser.territory?.name ?? null,
+      assignedSectorId: prismaUser.assignedSectorId ?? null,
+      phone: prismaUser.phone ?? null,
+      matricule: prismaUser.matricule ?? null,
+      hireDate: prismaUser.hireDate?.toISOString().split('T')[0] ?? null,
+      managerId: prismaUser.managerId ?? null,
+      photoUrl: prismaUser.photoUrl ?? null,
+      photo: prismaUser.photoUrl ?? null,
+      lastLogin: prismaUser.lastLogin?.toISOString() ?? null,
+    };
+  }
+
+  /**
    * Mapper un utilisateur Prisma vers l'entité User
    */
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -582,8 +768,9 @@ export class UsersService {
       role: prismaUser.role,
       status: prismaUser.status,
       territoryId: prismaUser.territoryId,
+      assignedSectorId: prismaUser.assignedSectorId ?? undefined,
       phone: prismaUser.phone ?? undefined,
-      employeeId: prismaUser.employeeId ?? undefined,
+      matricule: prismaUser.matricule ?? undefined,
       hireDate: prismaUser.hireDate ?? undefined,
       managerId: prismaUser.managerId ?? undefined,
       photoUrl: prismaUser.photoUrl ?? undefined,

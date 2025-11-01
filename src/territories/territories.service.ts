@@ -115,6 +115,77 @@ export class TerritoriesService {
   }
 
   /**
+   * Récupérer un territoire par son ID
+   */
+  async findOne(id: string) {
+    const territory = await this.prisma.territory.findUnique({
+      where: { id },
+      select: {
+        // Champs de base
+        id: true,
+        code: true,
+        name: true,
+        level: true,
+        parentId: true,
+
+        // Informations géographiques
+        regions: true,
+        communes: true,
+        villes: true,
+        quartiers: true,
+        codesPostaux: true,
+        lat: true,
+        lng: true,
+
+        // Informations démographiques
+        population: true,
+        superficie: true,
+        densitePopulation: true,
+
+        // Informations commerciales
+        potentielCommercial: true,
+        categorieMarche: true,
+        typeZone: true,
+        nombrePDVEstime: true,
+        tauxPenetration: true,
+
+        // Métadonnées
+        adminId: true,
+        createdBy: true,
+        notes: true,
+        isActive: true,
+        createdAt: true,
+        updatedAt: true,
+
+        // Relations
+        parent: {
+          select: {
+            id: true,
+            code: true,
+            name: true,
+            level: true,
+          },
+        },
+        admin: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+            role: true,
+          },
+        },
+      },
+    });
+
+    if (!territory) {
+      throw new NotFoundException(`Territoire avec l'ID ${id} non trouvé`);
+    }
+
+    return territory;
+  }
+
+  /**
    * Créer un nouveau territoire (ZONE)
    */
   async createTerritory(data: any) {

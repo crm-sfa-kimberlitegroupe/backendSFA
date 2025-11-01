@@ -135,4 +135,57 @@ export class RoutesController {
   async getVendorSectorOutlets(@Request() req) {
     return this.routesService.getVendorSectorOutlets(req.user.sub);
   }
+
+  /**
+   * POST /routes/generate-multi-day
+   * Générer des routes pour plusieurs jours
+   */
+  @Post('generate-multi-day')
+  @Roles(RoleEnum.ADMIN, RoleEnum.SUP)
+  async generateMultiDayRoutes(
+    @Body()
+    data: {
+      userId: string;
+      startDate: string;
+      numberOfDays: number;
+      outletsPerDay?: number;
+      optimize?: boolean;
+    },
+  ) {
+    return this.routesService.generateMultiDayRoutes(data);
+  }
+
+  /**
+   * GET /routes/:id/metrics
+   * Récupérer les métriques d'une route
+   */
+  @Get(':id/metrics')
+  async getRouteMetrics(@Param('id') id: string) {
+    return this.routesService.getRouteMetrics(id);
+  }
+
+  /**
+   * POST /routes/:id/optimize
+   * Optimiser une route existante
+   */
+  @Post(':id/optimize')
+  @Roles(RoleEnum.ADMIN, RoleEnum.SUP)
+  async optimizeRoute(@Param('id') id: string) {
+    // Récupérer la route actuelle
+    const route = await this.routesService.findOne(id);
+    
+    // Récupérer les outlets
+    const outletIds = route.routeStops?.map(s => s.outletId) || [];
+    
+    // Supprimer l'ancienne route
+    await this.routesService.remove(id);
+    
+    // Regénérer avec optimisation
+    return this.routesService.generateRoute({
+      userId: route.userId,
+      date: route.date.toISOString().split('T')[0],
+      outletIds,
+      optimize: true,
+    });
+  }
 }

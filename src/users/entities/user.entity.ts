@@ -7,10 +7,11 @@ export class User {
   role: string;
   status: string;
   territoryId?: string;
+  assignedSectorId?: string;
 
   // Informations supplémentaires
   phone?: string;
-  employeeId?: string;
+  matricule?: string;
   hireDate?: Date;
   managerId?: string;
 

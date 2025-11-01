@@ -41,7 +41,7 @@ export class UpdateUserDto {
 
   @IsOptional()
   @IsString()
-  employeeId?: string;
+  matricule?: string;
 
   @IsOptional()
   @IsDateString()

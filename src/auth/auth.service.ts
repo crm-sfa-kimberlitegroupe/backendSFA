@@ -714,13 +714,13 @@ export class AuthService {
       isActive: user.status === 'ACTIVE',
       photoUrl: user.photoUrl,
       phone: user.phone,
-      employeeId: user.employeeId,
+      matricule: user.matricule,
       hireDate: user.hireDate?.toISOString().split('T')[0],
     };
 
     // Ajouter le territoryId (toujours présent)
     response.territoryId = user.territoryId;
-    
+
     // Ajouter le nom du territoire si disponible, sinon l'ID
     if (relations?.territory) {
       response.territory = relations.territory.name;

@@ -385,4 +385,18 @@ export class TerritoriesController {
   async getVendorAssignedSector(@Param('vendorId') vendorId: string) {
     return this.territoriesService.getVendorAssignedSector(vendorId);
   }
+
+  /**
+   * GET /territories/:id
+   * Récupérer un territoire par son ID
+   */
+  @Get(':id')
+  async findOne(@Param('id') id: string) {
+    const territory = await this.territoriesService.findOne(id);
+    return {
+      success: true,
+      data: territory,
+      message: 'Territoire récupéré avec succès',
+    };
+  }
 }

@@ -38,4 +38,22 @@ export class RegisterDto {
   @MinLength(2, { message: 'Le nom doit contenir au moins 2 caractères' })
   @MaxLength(50, { message: 'Le nom ne doit pas dépasser 50 caractères' })
   lastName: string;
+
+  @IsString({ message: 'Le matricule doit être une chaîne de caractères' })
+  @IsNotEmpty({ message: 'Le matricule est requis' })
+  @MinLength(2, { message: 'Le matricule doit contenir au moins 2 caractères' })
+  @MaxLength(50, { message: 'Le matricule ne doit pas dépasser 50 caractères' })
+  matricule: string;
+
+  @IsString({
+    message: 'Le numéro de téléphone doit être une chaîne de caractères',
+  })
+  @IsNotEmpty({ message: 'Le numéro de téléphone est requis' })
+  @MinLength(2, {
+    message: 'Le numéro de téléphone doit contenir au moins 2 caractères',
+  })
+  @MaxLength(50, {
+    message: 'Le numéro de téléphone ne doit pas dépasser 50 caractères',
+  })
+  phone: string;
 }

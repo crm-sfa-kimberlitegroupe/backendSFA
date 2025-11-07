@@ -253,10 +253,10 @@ export class TerritoriesController {
 
   /**
    * GET /territories/:id/geo-info
-   * Récupérer les informations géographiques d'un territoire (ADMIN/SUP uniquement)
+   * Récupérer les informations géographiques d'un territoire (tous les rôles)
    */
   @Get(':id/geo-info')
-  @Roles(RoleEnum.ADMIN, RoleEnum.SUP)
+  @Roles(RoleEnum.ADMIN, RoleEnum.SUP, RoleEnum.REP)
   async getTerritoryGeoInfo(@Param('id') id: string) {
     const geoInfo = await this.territoriesService.getTerritoryGeoInfo(id);
     return {

@@ -8,6 +8,8 @@ import { PrismaModule } from './prisma/prisma.module';
 import { TerritoriesModule } from './territories/territories.module';
 import { OutletsModule } from './outlets/outlets.module';
 import { RoutesModule } from './routes/routes.module';
+import { SKUsModule } from './skus/skus.module';
+import { VendorStockModule } from './vendor-stock/vendor-stock.module';
 
 @Module({
   imports: [
@@ -21,6 +23,8 @@ import { RoutesModule } from './routes/routes.module';
     TerritoriesModule,
     OutletsModule,
     RoutesModule,
+    SKUsModule,
+    VendorStockModule,
   ],
   controllers: [AppController],
   providers: [AppService],

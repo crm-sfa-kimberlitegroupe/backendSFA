@@ -272,6 +272,8 @@ model User {
   auditLogs           AuditLog[]
   loginAttempts       LoginAttempt[]
   refreshTokens       RefreshToken[]
+  vendorStocks        VendorStock[]
+  stockHistory        StockHistory[]
 
   // Index pour optimisation des requêtes
   @@index([territoryId])
@@ -491,20 +493,24 @@ model Task {
 // ========================================
 
 model SKU {
-  id         String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  ean        String      @unique
-  name       String
-  brand      String
-  category   String?
-  priceHt    Decimal     @map("price_ht") @db.Decimal(12, 2)
-  vatRate    Decimal     @map("vat_rate") @db.Decimal(4, 2)
-  active     Boolean     @default(true)
-  createdAt  DateTime    @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt  DateTime    @updatedAt @map("updated_at") @db.Timestamptz
+  id          String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  ean         String      @unique
+  name        String
+  brand       String
+  category    String?
+  description String?     // Description du produit
+  photo       String?     // URL Cloudinary de la photo
+  priceHt     Decimal     @map("price_ht") @db.Decimal(12, 2)
+  vatRate     Decimal     @map("vat_rate") @db.Decimal(4, 2)
+  active      Boolean     @default(true)
+  createdAt   DateTime    @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime    @updatedAt @map("updated_at") @db.Timestamptz
 
   // Relations
-  inventories Inventory[]
-  orderLines  OrderLine[]
+  inventories  Inventory[]
+  orderLines   OrderLine[]
+  vendorStocks VendorStock[]
+  stockHistory StockHistory[]
 
   @@index([brand])
   @@index([category])
@@ -527,6 +533,52 @@ model Inventory {
   @@map("inventory")
 }
 
+// Portefeuille stock personnel du vendeur (REP)
+// Stock cumulatif qui persiste jour après jour
+model VendorStock {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId         String   @map("user_id") @db.Uuid  // REP uniquement
+  skuId          String   @map("sku_id") @db.Uuid
+  quantity       Int      @default(0)  // Stock actuel (cumulatif)
+  alertThreshold Int?     @map("alert_threshold")  // Seuil d'alerte personnalisé (optionnel)
+  updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  sku  SKU  @relation(fields: [skuId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@unique([userId, skuId])
+  @@index([userId])
+  @@index([skuId])
+  @@map("vendor_stock")
+}
+
+// Historique de tous les mouvements de stock du vendeur
+// Traçabilité complète pour audit et analyse
+model StockHistory {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId       String   @map("user_id") @db.Uuid
+  skuId        String   @map("sku_id") @db.Uuid
+  movementType String   @map("movement_type")  // ADD | SALE | ADJUSTMENT
+  quantity     Int      // Quantité du mouvement (peut être négatif pour SALE)
+  beforeQty    Int      @map("before_qty")     // Stock avant le mouvement
+  afterQty     Int      @map("after_qty")      // Stock après le mouvement
+  orderId      String?  @map("order_id") @db.Uuid  // Si mouvement lié à une vente
+  notes        String?  @db.Text
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  // Relations
+  user  User   @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  sku   SKU    @relation(fields: [skuId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  order Order? @relation(fields: [orderId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+
+  @@index([userId])
+  @@index([skuId])
+  @@index([orderId])
+  @@index([createdAt])
+  @@map("stock_history")
+}
+
 // ========================================
 // COMMANDES & PAIEMENTS
 // ========================================
@@ -546,11 +598,12 @@ model Order {
   updatedAt     DateTime        @updatedAt @map("updated_at") @db.Timestamptz
 
   // Relations
-  outlet     Outlet      @relation(fields: [outletId], references: [id], onDelete: Restrict, onUpdate: Cascade)
-  user       User        @relation(fields: [userId], references: [id], onDelete: Restrict, onUpdate: Cascade)
-  visit      Visit?      @relation(fields: [visitId], references: [id], onDelete: SetNull, onUpdate: Cascade)
-  orderLines OrderLine[]
-  payments   Payment[]
+  outlet       Outlet         @relation(fields: [outletId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  user         User           @relation(fields: [userId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  visit        Visit?         @relation(fields: [visitId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  orderLines   OrderLine[]
+  payments     Payment[]
+  stockHistory StockHistory[]
 
   @@index([outletId])
   @@index([userId])

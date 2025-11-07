@@ -1,0 +1,427 @@
+import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
+import { PrismaService } from '../prisma/prisma.service';
+import { RoleEnum } from '@prisma/client';
+
+export interface AddStockDto {
+  items: Array<{
+    skuId: string;
+    quantity: number;
+    alertThreshold?: number;
+  }>;
+  notes?: string;
+}
+
+export interface VendorStockItem {
+  id: string;
+  skuId: string;
+  quantity: number;
+  sku: {
+    id: string;
+    ean: string;
+    name: string;
+    brand: string;
+    category: string | null;
+    photo: string | null;
+    priceHt: number;
+  };
+  updatedAt: Date;
+}
+
+export interface StockHistoryItem {
+  id: string;
+  skuId: string;
+  movementType: string;
+  quantity: number;
+  beforeQty: number;
+  afterQty: number;
+  notes: string | null;
+  createdAt: Date;
+  sku: {
+    name: string;
+    brand: string;
+  };
+  order?: {
+    id: string;
+    outletId: string;
+  } | null;
+}
+
+@Injectable()
+export class VendorStockService {
+  constructor(private prisma: PrismaService) {}
+
+  /**
+   * Ajoute du stock au portefeuille du vendeur
+   * Logique cumulative: nouveau stock = stock existant + ajout
+   */
+  async addStock(userId: string, userRole: RoleEnum, data: AddStockDto) {
+    // Vérifier que l'utilisateur est un REP
+    if (userRole !== RoleEnum.REP) {
+      throw new ForbiddenException('Seuls les vendeurs (REP) peuvent gérer leur stock');
+    }
+
+    // Valider les données
+    if (!data.items || data.items.length === 0) {
+      throw new BadRequestException('Au moins un produit doit être fourni');
+    }
+
+    for (const item of data.items) {
+      if (item.quantity <= 0) {
+        throw new BadRequestException('La quantité doit être supérieure à 0');
+      }
+
+      // Vérifier que le SKU existe
+      const sku = await this.prisma.sKU.findUnique({
+        where: { id: item.skuId },
+      });
+
+      if (!sku) {
+        throw new NotFoundException(`SKU ${item.skuId} introuvable`);
+      }
+    }
+
+    // Traiter chaque item en transaction
+    const results = await this.prisma.$transaction(async (tx) => {
+      const processedItems = [];
+
+      for (const item of data.items) {
+        // Récupérer le stock actuel ou créer l'entrée
+        const existingStock = await tx.vendorStock.findUnique({
+          where: {
+            userId_skuId: {
+              userId,
+              skuId: item.skuId,
+            },
+          },
+        });
+
+        const beforeQty = existingStock?.quantity || 0;
+        const afterQty = beforeQty + item.quantity;
+
+        // Mettre à jour ou créer le stock
+        const updatedStock = await tx.vendorStock.upsert({
+          where: {
+            userId_skuId: {
+              userId,
+              skuId: item.skuId,
+            },
+          },
+          update: {
+            quantity: afterQty,
+            ...(item.alertThreshold !== undefined && { alertThreshold: item.alertThreshold }),
+          },
+          create: {
+            userId,
+            skuId: item.skuId,
+            quantity: afterQty,
+            alertThreshold: item.alertThreshold,
+          },
+        });
+
+        // Créer l'historique
+        await tx.stockHistory.create({
+          data: {
+            userId,
+            skuId: item.skuId,
+            movementType: 'ADD',
+            quantity: item.quantity,
+            beforeQty,
+            afterQty,
+            notes: data.notes || `Ajout stock début journée`,
+          },
+        });
+
+        processedItems.push({
+          skuId: item.skuId,
+          addedQty: item.quantity,
+          beforeQty,
+          afterQty,
+        });
+      }
+
+      return processedItems;
+    });
+
+    return {
+      message: 'Stock ajouté avec succès',
+      items: results,
+    };
+  }
+
+  /**
+   * Récupère le portefeuille stock du vendeur
+   */
+  async getMyPortfolio(userId: string, userRole: RoleEnum): Promise<VendorStockItem[]> {
+    if (userRole !== RoleEnum.REP) {
+      throw new ForbiddenException('Seuls les vendeurs (REP) peuvent consulter leur stock');
+    }
+
+    const stocks = await this.prisma.vendorStock.findMany({
+      where: { userId },
+      include: {
+        sku: {
+          select: {
+            id: true,
+            ean: true,
+            name: true,
+            brand: true,
+            category: true,
+            photo: true,
+            priceHt: true,
+          },
+        },
+      },
+      orderBy: {
+        updatedAt: 'desc',
+      },
+    });
+
+    return stocks.map((stock) => ({
+      id: stock.id,
+      skuId: stock.skuId,
+      quantity: stock.quantity,
+      sku: {
+        ...stock.sku,
+        priceHt: Number(stock.sku.priceHt),
+      },
+      updatedAt: stock.updatedAt,
+    }));
+  }
+
+  /**
+   * Récupère l'historique des mouvements de stock
+   */
+  async getHistory(
+    userId: string,
+    userRole: RoleEnum,
+    filters?: {
+      movementType?: string;
+      skuId?: string;
+      startDate?: Date;
+      endDate?: Date;
+      limit?: number;
+    },
+  ): Promise<StockHistoryItem[]> {
+    if (userRole !== RoleEnum.REP) {
+      throw new ForbiddenException('Seuls les vendeurs (REP) peuvent consulter leur historique');
+    }
+
+    const where: any = { userId };
+
+    if (filters?.movementType) {
+      where.movementType = filters.movementType;
+    }
+
+    if (filters?.skuId) {
+      where.skuId = filters.skuId;
+    }
+
+    if (filters?.startDate || filters?.endDate) {
+      where.createdAt = {};
+      if (filters.startDate) {
+        where.createdAt.gte = filters.startDate;
+      }
+      if (filters.endDate) {
+        where.createdAt.lte = filters.endDate;
+      }
+    }
+
+    const history = await this.prisma.stockHistory.findMany({
+      where,
+      include: {
+        sku: {
+          select: {
+            name: true,
+            brand: true,
+          },
+        },
+        order: {
+          select: {
+            id: true,
+            outletId: true,
+          },
+        },
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+      take: filters?.limit || 100,
+    });
+
+    return history;
+  }
+
+  /**
+   * Déduit du stock lors d'une vente
+   * Appelé automatiquement lors de la création d'une commande
+   */
+  async deductStock(
+    userId: string,
+    orderId: string,
+    items: Array<{ skuId: string; quantity: number }>,
+  ) {
+    return await this.prisma.$transaction(async (tx) => {
+      const results = [];
+
+      for (const item of items) {
+        // Récupérer le stock actuel
+        const currentStock = await tx.vendorStock.findUnique({
+          where: {
+            userId_skuId: {
+              userId,
+              skuId: item.skuId,
+            },
+          },
+        });
+
+        if (!currentStock) {
+          throw new BadRequestException(
+            `Vous n'avez pas de stock pour ce produit`,
+          );
+        }
+
+        if (currentStock.quantity < item.quantity) {
+          throw new BadRequestException(
+            `Stock insuffisant. Disponible: ${currentStock.quantity}, Demandé: ${item.quantity}`,
+          );
+        }
+
+        const beforeQty = currentStock.quantity;
+        const afterQty = beforeQty - item.quantity;
+
+        // Déduire du stock
+        await tx.vendorStock.update({
+          where: {
+            userId_skuId: {
+              userId,
+              skuId: item.skuId,
+            },
+          },
+          data: {
+            quantity: afterQty,
+          },
+        });
+
+        // Créer l'historique
+        await tx.stockHistory.create({
+          data: {
+            userId,
+            skuId: item.skuId,
+            movementType: 'SALE',
+            quantity: -item.quantity,
+            beforeQty,
+            afterQty,
+            orderId,
+            notes: `Vente - Commande ${orderId}`,
+          },
+        });
+
+        results.push({
+          skuId: item.skuId,
+          deductedQty: item.quantity,
+          beforeQty,
+          afterQty,
+        });
+      }
+
+      return results;
+    });
+  }
+
+  /**
+   * Récupère le stock actuel d'un produit spécifique
+   */
+  async getStockForSku(userId: string, skuId: string): Promise<number> {
+    const stock = await this.prisma.vendorStock.findUnique({
+      where: {
+        userId_skuId: {
+          userId,
+          skuId,
+        },
+      },
+    });
+
+    return stock?.quantity || 0;
+  }
+
+  /**
+   * Récupère les produits avec stock faible (< 10 unités)
+   */
+  async getLowStockItems(userId: string, userRole: RoleEnum, threshold = 10) {
+    if (userRole !== RoleEnum.REP) {
+      throw new ForbiddenException('Seuls les vendeurs (REP) peuvent consulter leurs alertes');
+    }
+
+    const lowStockItems = await this.prisma.vendorStock.findMany({
+      where: {
+        userId,
+        quantity: {
+          lt: threshold,
+          gt: 0,
+        },
+      },
+      include: {
+        sku: {
+          select: {
+            id: true,
+            name: true,
+            brand: true,
+            photo: true,
+          },
+        },
+      },
+      orderBy: {
+        quantity: 'asc',
+      },
+    });
+
+    return lowStockItems;
+  }
+
+  /**
+   * Statistiques du portefeuille
+   */
+  async getStats(userId: string, userRole: RoleEnum) {
+    if (userRole !== RoleEnum.REP) {
+      throw new ForbiddenException('Seuls les vendeurs (REP) peuvent consulter leurs stats');
+    }
+
+    const [totalProducts, totalQuantity, lowStockCount, todayMovements] = await Promise.all([
+      // Nombre de produits différents en stock
+      this.prisma.vendorStock.count({
+        where: {
+          userId,
+          quantity: { gt: 0 },
+        },
+      }),
+      // Quantité totale en stock
+      this.prisma.vendorStock.aggregate({
+        where: { userId },
+        _sum: { quantity: true },
+      }),
+      // Produits avec stock faible
+      this.prisma.vendorStock.count({
+        where: {
+          userId,
+          quantity: { lt: 10, gt: 0 },
+        },
+      }),
+      // Mouvements aujourd'hui
+      this.prisma.stockHistory.count({
+        where: {
+          userId,
+          createdAt: {
+            gte: new Date(new Date().setHours(0, 0, 0, 0)),
+          },
+        },
+      }),
+    ]);
+
+    return {
+      totalProducts,
+      totalQuantity: totalQuantity._sum.quantity || 0,
+      lowStockCount,
+      todayMovements,
+    };
+  }
+}

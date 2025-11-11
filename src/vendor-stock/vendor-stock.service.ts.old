@@ -163,11 +163,36 @@ export class VendorStockService {
           select: {
             id: true,
             ean: true,
-            name: true,
-            brand: true,
-            category: true,
+            shortDescription: true,
             photo: true,
             priceHt: true,
+            packSize: {
+              select: {
+                packFormat: {
+                  select: {
+                    subBrand: {
+                      select: {
+                        name: true,
+                        brand: {
+                          select: {
+                            name: true,
+                            subCategory: {
+                              select: {
+                                category: {
+                                  select: {
+                                    name: true,
+                                  },
+                                },
+                              },
+                            },
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
           },
         },
       },

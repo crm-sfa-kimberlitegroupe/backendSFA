@@ -274,6 +274,7 @@ model User {
   refreshTokens       RefreshToken[]
   vendorStocks        VendorStock[]
   stockHistory        StockHistory[]
+  sellerSKUGroupMappings SellerSKUGroupMapping[]
 
   // Index pour optimisation des requêtes
   @@index([territoryId])
@@ -361,6 +362,7 @@ model RoutePlan {
   user       User        @relation(fields: [userId], references: [id], onDelete: Restrict, onUpdate: Cascade)
   sector     Territory?  @relation("RoutePlanSector", fields: [sectorId], references: [id], onDelete: SetNull, onUpdate: Cascade)
   routeStops RouteStop[]
+  sellerSKUGroupMappings SellerSKUGroupMapping[]
 
   @@index([userId])
   @@index([sectorId])
@@ -489,31 +491,178 @@ model Task {
 }
 
 // ========================================
+// HIÉRARCHIE DES PRODUITS (7 niveaux)
+// ========================================
+
+// Niveau 1 : CATÉGORIE
+model ProductCategory {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code        String   @unique @db.VarChar(20)
+  name        String   @db.VarChar(100)
+  displayName String?  @map("display_name") @db.VarChar(100)
+  description String?  @db.Text
+  sortOrder   Int      @default(0) @map("sort_order")
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  subCategories ProductSubCategory[]
+  promotions    Promotion[]
+
+  @@index([active])
+  @@index([code])
+  @@map("product_categories")
+}
+
+// Niveau 2 : SOUS-CATÉGORIE
+model ProductSubCategory {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code        String   @unique @db.VarChar(20)
+  name        String   @db.VarChar(100)
+  displayName String?  @map("display_name") @db.VarChar(100)
+  categoryId  String   @map("category_id") @db.Uuid
+  sortOrder   Int      @default(0) @map("sort_order")
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  category ProductCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  brands   ProductBrand[]
+
+  @@index([categoryId])
+  @@index([active])
+  @@map("product_sub_categories")
+}
+
+// Niveau 3 : MARQUE
+model ProductBrand {
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code          String   @unique @db.VarChar(20)
+  name          String   @db.VarChar(100)
+  displayName   String?  @map("display_name") @db.VarChar(100)
+  subCategoryId String   @map("sub_category_id") @db.Uuid
+  sortOrder     Int      @default(0) @map("sort_order")
+  active        Boolean  @default(true)
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt     DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  subCategory ProductSubCategory @relation(fields: [subCategoryId], references: [id], onDelete: Cascade)
+  subBrands   ProductSubBrand[]
+  packFormats ProductPackFormat[]
+  promotions  Promotion[]
+
+  @@index([subCategoryId])
+  @@index([active])
+  @@map("product_brands")
+}
+
+// Niveau 4 : SOUS-MARQUE
+model ProductSubBrand {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code        String   @unique @db.VarChar(20)
+  name        String   @db.VarChar(100)
+  displayName String?  @map("display_name") @db.VarChar(100)
+  brandId     String   @map("brand_id") @db.Uuid
+  sortOrder   Int      @default(0) @map("sort_order")
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  brand      ProductBrand @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  promotions Promotion[]
+
+  @@index([brandId])
+  @@index([active])
+  @@map("product_sub_brands")
+}
+
+// Niveau 5 : FORMAT DU PACK
+model ProductPackFormat {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code        String   @unique @db.VarChar(20)
+  name        String   @db.VarChar(100)
+  displayName String?  @map("display_name") @db.VarChar(100)
+  brandId     String   @map("brand_id") @db.Uuid
+  sortOrder   Int      @default(0) @map("sort_order")
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  brand      ProductBrand     @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  packSizes  ProductPackSize[]
+  promotions Promotion[]
+
+  @@index([brandId])
+  @@index([active])
+  @@map("product_pack_formats")
+}
+
+// Niveau 6 : TAILLE DU PACK
+model ProductPackSize {
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code          String   @unique @db.VarChar(20)
+  name          String   @db.VarChar(100)
+  displayName   String?  @map("display_name") @db.VarChar(100)
+  packFormatId  String   @map("pack_format_id") @db.Uuid
+  sortOrder     Int      @default(0) @map("sort_order")
+  active        Boolean  @default(true)
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt     DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  packFormat ProductPackFormat @relation(fields: [packFormatId], references: [id], onDelete: Cascade)
+  skus       SKU[]
+
+  @@index([packFormatId])
+  @@index([active])
+  @@map("product_pack_sizes")
+}
+
+// ========================================
 // CATALOGUE & STOCK
 // ========================================
 
+// Niveau 7 : PRODUIT FINAL (SKU)
 model SKU {
-  id          String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  ean         String      @unique
-  name        String
-  brand       String
-  category    String?
-  description String?     // Description du produit
-  photo       String?     // URL Cloudinary de la photo
-  priceHt     Decimal     @map("price_ht") @db.Decimal(12, 2)
-  vatRate     Decimal     @map("vat_rate") @db.Decimal(4, 2)
-  active      Boolean     @default(true)
-  createdAt   DateTime    @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt   DateTime    @updatedAt @map("updated_at") @db.Timestamptz
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code            String   @unique @db.VarChar(50)
+  ean             String?  @unique @db.VarChar(13)
+  
+  fullDescription  String   @map("full_description") @db.VarChar(255)
+  shortDescription String   @map("short_description") @db.VarChar(100)
+  
+  packSizeId      String   @map("pack_size_id") @db.Uuid
+  
+  barCode         String?  @map("bar_code") @db.VarChar(50)
+  baseUom         String   @map("base_uom") @db.VarChar(20) @default("Piece")
+  defaultUom      String   @map("default_uom") @db.VarChar(20) @default("Piece")
+  
+  priceHt         Decimal  @map("price_ht") @db.Decimal(12, 2)
+  vatRate         Decimal  @map("vat_rate") @db.Decimal(4, 2)
+  priceTtc        Decimal  @map("price_ttc") @db.Decimal(12, 2)
+  
+  photo           String?  @db.Text
+  
+  weight          Decimal? @db.Decimal(10, 3)
+  volume          Decimal? @db.Decimal(10, 3)
+  
+  isSaleable      Boolean  @default(true) @map("is_saleable")
+  active          Boolean  @default(true)
+  
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime @updatedAt @map("updated_at") @db.Timestamptz
 
-  // Relations
+  packSize     ProductPackSize @relation(fields: [packSizeId], references: [id], onDelete: Restrict)
   inventories  Inventory[]
   orderLines   OrderLine[]
   vendorStocks VendorStock[]
   stockHistory StockHistory[]
+  skuGroupMappings SKUGroupMapping[]
+  promotionSKUs PromotionSKU[]
 
-  @@index([brand])
-  @@index([category])
+  @@index([packSizeId])
+  @@index([active])
+  @@index([isSaleable])
+  @@index([code])
   @@map("sku")
 }
 
@@ -580,6 +729,113 @@ model StockHistory {
 }
 
 // ========================================
+// SYSTÈME DE GROUPES SKU
+// ========================================
+
+model SKUGroup {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code        String   @unique @db.VarChar(20)
+  description String   @db.VarChar(255)
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  skuMappings      SKUGroupMapping[]
+  sellerMappings   SellerSKUGroupMapping[]
+
+  @@index([active])
+  @@map("sku_groups")
+}
+
+model SKUGroupMapping {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  skuId      String   @map("sku_id") @db.Uuid
+  groupId    String   @map("group_id") @db.Uuid
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  sku   SKU      @relation(fields: [skuId], references: [id], onDelete: Cascade)
+  group SKUGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+  @@unique([skuId, groupId])
+  @@index([groupId])
+  @@map("sku_group_mappings")
+}
+
+model SellerSKUGroupMapping {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  sellerId   String   @map("seller_id") @db.Uuid
+  routePlanId    String?  @map("route_plan_id") @db.Uuid
+  groupId    String   @map("group_id") @db.Uuid
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  seller User     @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+  routePlan  RoutePlan?   @relation(fields: [routePlanId], references: [id], onDelete: Cascade)
+  group  SKUGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+  @@unique([sellerId, routePlanId, groupId])
+  @@index([sellerId])
+  @@index([routePlanId])
+  @@index([groupId])
+  @@map("seller_sku_group_mappings")
+}
+
+// ========================================
+// PROMOTIONS
+// ========================================
+
+model Promotion {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code        String    @unique @db.VarChar(20)
+  name        String    @db.VarChar(100)
+  description String?   @db.Text
+  type        String    @db.VarChar(20) // "PERCENTAGE", "FIXED_AMOUNT", "BUY_X_GET_Y"
+  value       Decimal   @db.Decimal(10, 2)
+  startDate   DateTime  @map("start_date") @db.Timestamptz
+  endDate     DateTime  @map("end_date") @db.Timestamptz
+  active      Boolean   @default(true)
+  
+  // Application par niveau hiérarchique
+  applyToLevel String?  @map("apply_to_level") @db.VarChar(20) // "CATEGORY", "BRAND", "SUB_BRAND", "PACK_FORMAT"
+  
+  categoryId   String?  @map("category_id") @db.Uuid
+  brandId      String?  @map("brand_id") @db.Uuid
+  subBrandId   String?  @map("sub_brand_id") @db.Uuid
+  packFormatId String?  @map("pack_format_id") @db.Uuid
+  
+  minQuantity Int?      @map("min_quantity")
+  maxDiscount Decimal?  @map("max_discount") @db.Decimal(10, 2)
+  
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+  
+  category     ProductCategory?  @relation(fields: [categoryId], references: [id])
+  brand        ProductBrand?     @relation(fields: [brandId], references: [id])
+  subBrand     ProductSubBrand?  @relation(fields: [subBrandId], references: [id])
+  packFormat   ProductPackFormat? @relation(fields: [packFormatId], references: [id])
+  
+  skus PromotionSKU[]
+  
+  @@index([active, startDate, endDate])
+  @@index([applyToLevel])
+  @@map("promotions")
+}
+
+model PromotionSKU {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  promotionId String   @map("promotion_id") @db.Uuid
+  skuId       String   @map("sku_id") @db.Uuid
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+  
+  promotion Promotion @relation(fields: [promotionId], references: [id], onDelete: Cascade)
+  sku       SKU       @relation(fields: [skuId], references: [id], onDelete: Cascade)
+  
+  @@unique([promotionId, skuId])
+  @@index([promotionId])
+  @@index([skuId])
+  @@map("promotion_skus")
+}
+
+// ========================================
 // COMMANDES & PAIEMENTS
 // ========================================
 
@@ -620,6 +876,12 @@ model OrderLine {
   vatRate      Decimal  @map("vat_rate") @db.Decimal(4, 2)
   lineTotalHt  Decimal  @default(0) @map("line_total_ht") @db.Decimal(12, 2)
   lineTotalTtc Decimal  @default(0) @map("line_total_ttc") @db.Decimal(12, 2)
+  
+  // Champs promotions
+  promotionId      String?  @map("promotion_id") @db.Uuid
+  originalUnitPrice Decimal? @map("original_unit_price") @db.Decimal(12, 2)
+  discountAmount    Decimal? @map("discount_amount") @db.Decimal(12, 2)
+  
   createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz
 
   // Relations

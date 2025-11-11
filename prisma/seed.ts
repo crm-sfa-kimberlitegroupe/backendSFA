@@ -66,11 +66,11 @@ async function main() {
       level: 'ZONE',
 
       // Informations géographiques
-      region: 'Abidjan',
-      commune: 'Plateau',
-      ville: 'Abidjan',
-      quartier: 'Plateau Dokui',
-      codePostal: '01 BP 1234',
+      regions: ['Abidjan'],
+      communes: ['Plateau'],
+      villes: ['Abidjan'],
+      quartiers: ['Plateau Dokui'],
+      codesPostaux: ['01 BP 1234'],
       lat: 5.3250,
       lng: -4.0200,
 
@@ -101,11 +101,11 @@ async function main() {
       level: 'ZONE',
 
       // Informations géographiques
-      region: 'Abidjan',
-      commune: 'Cocody',
-      ville: 'Abidjan',
-      quartier: 'Cocody 2 Plateaux',
-      codePostal: '08 BP 2345',
+      regions: ['Abidjan'],
+      communes: ['Cocody'],
+      villes: ['Abidjan'],
+      quartiers: ['Cocody 2 Plateaux'],
+      codesPostaux: ['08 BP 2345'],
       lat: 5.3540,
       lng: -3.9860,
 
@@ -135,11 +135,11 @@ async function main() {
       level: 'ZONE',
 
       // Informations géographiques
-      region: 'Abidjan',
-      commune: 'Adjamé',
-      ville: 'Abidjan',
-      quartier: 'Adjamé Marché',
-      codePostal: '16 BP 3456',
+      regions: ['Abidjan'],
+      communes: ['Adjamé'],
+      villes: ['Abidjan'],
+      quartiers: ['Adjamé Marché'],
+      codesPostaux: ['16 BP 3456'],
       lat: 5.3600,
       lng: -4.0300,
 
@@ -478,12 +478,6 @@ async function main() {
         territoryId: samuelUser.territoryId,
         proposedBy: samuelUser.id,
         status: 'PENDING',
-        // 🗺️ Infos géographiques héritées du territoire
-        region: samuelUser.territory?.region,
-        commune: samuelUser.territory?.commune,
-        ville: samuelUser.territory?.ville,
-        quartier: samuelUser.territory?.quartier,
-        codePostal: samuelUser.territory?.codePostal,
       },
     });
 
@@ -500,12 +494,6 @@ async function main() {
         territoryId: samuelUser.territoryId,
         proposedBy: samuelUser.id,
         status: 'APPROVED',
-        // 🗺️ Infos géographiques héritées du territoire
-        region: samuelUser.territory?.region,
-        commune: samuelUser.territory?.commune,
-        ville: samuelUser.territory?.ville,
-        quartier: samuelUser.territory?.quartier,
-        codePostal: samuelUser.territory?.codePostal,
       },
     });
 
@@ -522,12 +510,6 @@ async function main() {
         territoryId: samuelUser.territoryId,
         proposedBy: samuelUser.id,
         status: 'APPROVED',
-        // 🗺️ Infos géographiques héritées du territoire
-        region: samuelUser.territory?.region,
-        commune: samuelUser.territory?.commune,
-        ville: samuelUser.territory?.ville,
-        quartier: samuelUser.territory?.quartier,
-        codePostal: samuelUser.territory?.codePostal,
       },
     });
 

@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { Prisma } from '@prisma/client';
 import { CreatePromotionDto, UpdatePromotionDto } from '../dto/promotion.dto';
@@ -63,11 +67,11 @@ export class PromotionService {
 
   async getPromotions(active?: boolean, current?: boolean) {
     const where: any = {};
-    
+
     if (active !== undefined) {
       where.active = active;
     }
-    
+
     if (current) {
       const now = new Date();
       where.startDate = { lte: now };
@@ -346,7 +350,7 @@ export class PromotionService {
     quantity?: number
   ) {
     const price = new Prisma.Decimal(originalPrice);
-    
+
     // Check minimum quantity if specified
     if (promotion.minQuantity && quantity && quantity < promotion.minQuantity) {
       return {
@@ -405,7 +409,7 @@ export class PromotionService {
 
   async applyBestPromotionToItem(skuId: string, unitPrice: number, quantity: number) {
     const promotions = await this.getActivePromotionsForSKU(skuId);
-    
+
     if (promotions.length === 0) {
       return {
         unitPrice: new Prisma.Decimal(unitPrice),

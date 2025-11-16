@@ -127,7 +127,7 @@ export class AuthService {
       }
 
       const is2FAValid = this.verify2FACode(
-        user.twoFactorSecret!,
+        user.twoFactorSecret,
         loginDto.twoFactorCode,
       );
 
@@ -287,7 +287,7 @@ export class AuthService {
     });
 
     // Générer le QR code
-    const qrCodeUrl = await qrcode.toDataURL(secret.otpauth_url!);
+    const qrCodeUrl = await qrcode.toDataURL(secret.otpauth_url);
 
     return {
       success: true,

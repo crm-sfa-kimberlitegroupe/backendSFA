@@ -783,38 +783,57 @@ export class ProductHierarchyService {
   async getProductStatistics() {
     const [
       categoriesCount,
+      activeCategoriesCount,
       subCategoriesCount,
+      activeSubCategoriesCount,
       brandsCount,
+      activeBrandsCount,
       subBrandsCount,
+      activeSubBrandsCount,
       packFormatsCount,
+      activePackFormatsCount,
       packSizesCount,
+      activePackSizesCount,
       skusCount,
       activeSkusCount,
-      saleableSkusCount,
     ] = await Promise.all([
       this.prisma.productCategory.count(),
+      this.prisma.productCategory.count({ where: { active: true } }),
       this.prisma.productSubCategory.count(),
+      this.prisma.productSubCategory.count({ where: { active: true } }),
       this.prisma.productBrand.count(),
+      this.prisma.productBrand.count({ where: { active: true } }),
       this.prisma.productSubBrand.count(),
+      this.prisma.productSubBrand.count({ where: { active: true } }),
       this.prisma.productPackFormat.count(),
+      this.prisma.productPackFormat.count({ where: { active: true } }),
       this.prisma.productPackSize.count(),
+      this.prisma.productPackSize.count({ where: { active: true } }),
       this.prisma.sKU.count(),
       this.prisma.sKU.count({ where: { active: true } }),
-      this.prisma.sKU.count({ where: { active: true, isSaleable: true } }),
     ]);
 
+    // Calculer les moyennes
+    const averageSKUsPerCategory = categoriesCount > 0 ? skusCount / categoriesCount : 0;
+    const averageSKUsPerBrand = brandsCount > 0 ? skusCount / brandsCount : 0;
+
     return {
-      categories: categoriesCount,
-      subCategories: subCategoriesCount,
-      brands: brandsCount,
-      subBrands: subBrandsCount,
-      packFormats: packFormatsCount,
-      packSizes: packSizesCount,
-      skus: {
-        total: skusCount,
-        active: activeSkusCount,
-        saleable: saleableSkusCount,
-      },
+      totalCategories: categoriesCount,
+      activeCategories: activeCategoriesCount,
+      totalSubCategories: subCategoriesCount,
+      activeSubCategories: activeSubCategoriesCount,
+      totalBrands: brandsCount,
+      activeBrands: activeBrandsCount,
+      totalSubBrands: subBrandsCount,
+      activeSubBrands: activeSubBrandsCount,
+      totalPackFormats: packFormatsCount,
+      activePackFormats: activePackFormatsCount,
+      totalPackSizes: packSizesCount,
+      activePackSizes: activePackSizesCount,
+      totalSKUs: skusCount,
+      activeSKUs: activeSkusCount,
+      averageSKUsPerCategory,
+      averageSKUsPerBrand,
     };
   }
 

@@ -9,9 +9,10 @@ import { TerritoriesModule } from './territories/territories.module';
 import { OutletsModule } from './outlets/outlets.module';
 import { RoutesModule } from './routes/routes.module';
 // import { SKUsModule } from './skus/skus.module'; // Remplacé par ProductsModule
-// import { VendorStockModule } from './vendor-stock/vendor-stock.module'; // À refactoriser
+import { VendorStockModule } from './vendor-stock/vendor-stock.module';
 import { ProductsModule } from './products/products.module';
 import { PromotionsModule } from './promotions/promotions.module';
+import { OrdersModule } from './orders/orders.module';
 
 @Module({
   imports: [
@@ -26,9 +27,10 @@ import { PromotionsModule } from './promotions/promotions.module';
     OutletsModule,
     RoutesModule,
     // SKUsModule, // Temporairement désactivé - remplacé par ProductsModule
-    // VendorStockModule, // À refactoriser pour utiliser la nouvelle structure SKU
+    VendorStockModule,
     ProductsModule,
     PromotionsModule,
+    OrdersModule,
   ],
   controllers: [AppController],
   providers: [AppService],

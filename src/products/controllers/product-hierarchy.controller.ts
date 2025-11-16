@@ -9,17 +9,34 @@ import {
   Param,
   Query,
   UseGuards,
+  UseInterceptors,
+  UploadedFile,
+  BadRequestException,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
+import { FileInterceptor } from '@nestjs/platform-express';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiBearerAuth,
+  ApiConsumes,
+  ApiBody,
+} from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../auth/guards/roles.guard';
 import { Roles } from '../../auth/decorators/roles.decorator';
 import { ProductHierarchyService } from '../services/product-hierarchy.service';
+import { CloudinaryService } from '../../cloudinary/cloudinary.service';
 import { CreateCategoryDto, UpdateCategoryDto } from '../dto/category.dto';
-import { CreateSubCategoryDto, UpdateSubCategoryDto } from '../dto/sub-category.dto';
+import {
+  CreateSubCategoryDto,
+  UpdateSubCategoryDto,
+} from '../dto/sub-category.dto';
 import { CreateBrandDto, UpdateBrandDto } from '../dto/brand.dto';
 import { CreateSubBrandDto, UpdateSubBrandDto } from '../dto/sub-brand.dto';
-import { CreatePackFormatDto, UpdatePackFormatDto } from '../dto/pack-format.dto';
+import {
+  CreatePackFormatDto,
+  UpdatePackFormatDto,
+} from '../dto/pack-format.dto';
 import { CreatePackSizeDto, UpdatePackSizeDto } from '../dto/pack-size.dto';
 import { CreateSKUDto, UpdateSKUDto, SKUQueryDto } from '../dto/sku.dto';
 
@@ -28,7 +45,10 @@ import { CreateSKUDto, UpdateSKUDto, SKUQueryDto } from '../dto/sku.dto';
 @Controller('admin/products')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class ProductHierarchyController {
-  constructor(private readonly productHierarchyService: ProductHierarchyService) {}
+  constructor(
+    private readonly productHierarchyService: ProductHierarchyService,
+    private readonly cloudinaryService: CloudinaryService,
+  ) {}
 
   // ========================================
   // CATEGORIES
@@ -58,7 +78,10 @@ export class ProductHierarchyController {
   @Put('categories/:id')
   @Roles('SUP')
   @ApiOperation({ summary: 'Update category' })
-  async updateCategory(@Param('id') id: string, @Body() dto: UpdateCategoryDto) {
+  async updateCategory(
+    @Param('id') id: string,
+    @Body() dto: UpdateCategoryDto,
+  ) {
     return await this.productHierarchyService.updateCategory(id, dto);
   }
 
@@ -87,7 +110,10 @@ export class ProductHierarchyController {
     @Query('categoryId') categoryId?: string,
     @Query('active') active?: boolean,
   ) {
-    return await this.productHierarchyService.getSubCategories(categoryId, active);
+    return await this.productHierarchyService.getSubCategories(
+      categoryId,
+      active,
+    );
   }
 
   @Post('sub-categories')
@@ -107,7 +133,10 @@ export class ProductHierarchyController {
   @Put('sub-categories/:id')
   @Roles('SUP')
   @ApiOperation({ summary: 'Update sub-category' })
-  async updateSubCategory(@Param('id') id: string, @Body() dto: UpdateSubCategoryDto) {
+  async updateSubCategory(
+    @Param('id') id: string,
+    @Body() dto: UpdateSubCategoryDto,
+  ) {
     return await this.productHierarchyService.updateSubCategory(id, dto);
   }
 
@@ -235,6 +264,54 @@ export class ProductHierarchyController {
   @ApiOperation({ summary: 'Toggle SKU status' })
   async toggleSKUStatus(@Param('id') id: string) {
     return await this.productHierarchyService.toggleSKUStatus(id);
+  }
+
+  @Post('skus/upload-image')
+  @Roles('SUP', 'ADMIN')
+  @UseInterceptors(FileInterceptor('image'))
+  @ApiConsumes('multipart/form-data')
+  @ApiOperation({ summary: 'Upload SKU image to Cloudinary' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        image: {
+          type: 'string',
+          format: 'binary',
+        },
+      },
+    },
+  })
+  async uploadSKUImage(@UploadedFile() file: Express.Multer.File) {
+    if (!file) {
+      throw new BadRequestException('Aucune image fournie');
+    }
+
+    console.log('📤 [ProductHierarchyController] Upload image SKU:', {
+      originalname: file.originalname,
+      mimetype: file.mimetype,
+      size: file.size,
+    });
+
+    try {
+      const imageUrl = await this.cloudinaryService.uploadImage(
+        file,
+        'sfa-products',
+      );
+
+      console.log('✅ [ProductHierarchyController] Image uploadée:', imageUrl);
+
+      return {
+        success: true,
+        imageUrl,
+        message: 'Image uploadée avec succès',
+      };
+    } catch (error) {
+      console.error('❌ [ProductHierarchyController] Erreur upload:', error);
+      throw new BadRequestException(
+        'Erreur lors de l upload de l image: ' + error.message,
+      );
+    }
   }
 
   // ========================================

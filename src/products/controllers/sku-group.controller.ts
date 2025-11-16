@@ -73,14 +73,20 @@ export class SKUGroupController {
   @Post(':id/skus')
   @Roles('SUP')
   @ApiOperation({ summary: 'Add SKUs to group' })
-  async addSKUsToGroup(@Param('id') id: string, @Body() dto: AddSKUsToGroupDto) {
+  async addSKUsToGroup(
+    @Param('id') id: string,
+    @Body() dto: AddSKUsToGroupDto,
+  ) {
     return await this.skuGroupService.addSKUsToGroup(id, dto.skuIds);
   }
 
   @Delete(':id/skus/:skuId')
   @Roles('SUP')
   @ApiOperation({ summary: 'Remove SKU from group' })
-  async removeSKUFromGroup(@Param('id') id: string, @Param('skuId') skuId: string) {
+  async removeSKUFromGroup(
+    @Param('id') id: string,
+    @Param('skuId') skuId: string,
+  ) {
     return await this.skuGroupService.removeSKUFromGroup(id, skuId);
   }
 

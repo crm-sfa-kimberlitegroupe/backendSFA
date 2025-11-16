@@ -90,11 +90,11 @@ export class OutletsController {
     @Request() req?: RequestWithUser,
   ) {
     const userTerritoryId = req?.user?.territoryId;
-    
+
     // 🔍 LOGS DE DEBUG
     console.log('📍 [my-territory] Requête reçue');
     console.log('📍 User:', req?.user);
-    console.log('📍 TerritoryId de l\'utilisateur:', userTerritoryId);
+    console.log('📍 TerritoryId de l utilisateur:', userTerritoryId);
     console.log('📍 Status demandé:', status);
     console.log('📍 Channel demandé:', channel);
 
@@ -111,11 +111,10 @@ export class OutletsController {
       territoryId: userTerritoryId, // ← FORCÉ
       channel,
     };
-    
+
     console.log('📍 Filtres appliqués:', filters);
     const result = await this.outletsService.findAll(filters);
     console.log('📍 Nombre de PDV trouvés:', result?.length || 0);
-    
     return result;
   }
 

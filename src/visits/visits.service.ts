@@ -1,0 +1,617 @@
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+  ForbiddenException,
+} from '@nestjs/common';
+import { PrismaService } from '../prisma/prisma.service';
+import {
+  CreateVisitDto,
+  CreateCompleteVisitDto,
+  CompleteVisitDto,
+  CheckInDto,
+  CheckOutDto,
+  CreateMerchCheckDto,
+} from './dto/create-visit.dto';
+import { Prisma } from '@prisma/client';
+
+@Injectable()
+export class VisitsService {
+  constructor(private prisma: PrismaService) {}
+
+  /**
+   * Créer une visite complète (check-in et check-out automatiques)
+   */
+  async createCompleteVisit(userId: string, data: CreateCompleteVisitDto) {
+    console.log('🔍 [VisitsService] createCompleteVisit appelé avec:', { userId, data });
+    const now = new Date();
+
+    // Vérifier que l'outlet existe
+    const outlet = await this.prisma.outlet.findUnique({
+      where: { id: data.outletId },
+    });
+
+    if (!outlet) {
+      console.error('❌ [VisitsService] Outlet introuvable:', data.outletId);
+      throw new NotFoundException(
+        `Point de vente ${data.outletId} introuvable`,
+      );
+    }
+
+    console.log('✅ [VisitsService] Outlet trouvé:', outlet.name);
+
+    // Créer la visite avec transaction pour assurer la cohérence
+    return await this.prisma.$transaction(async (tx) => {
+      // Créer la visite avec check-in et check-out automatiques
+      const visit = await tx.visit.create({
+        data: {
+          outletId: data.outletId,
+          userId,
+          checkinAt: now,
+          checkinLat: data.checkinLat,
+          checkinLng: data.checkinLng,
+          checkoutAt: now, // Check-out automatique
+          checkoutLat: data.checkinLat, // Utiliser les mêmes coordonnées
+          checkoutLng: data.checkinLng,
+          durationMin: 0, // Durée 0 car instantané
+          notes: data.notes,
+          score: data.score,
+        },
+        include: {
+          outlet: true,
+          user: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              email: true,
+            },
+          },
+        },
+      });
+
+      // Si des données de merchandising sont fournies, créer le MerchCheck
+      if (data.merchCheck) {
+        const merchCheck = await tx.merchCheck.create({
+          data: {
+            visitId: visit.id,
+            checklist: data.merchCheck.checklist as Prisma.JsonValue,
+            planogram: data.merchCheck.planogram as Prisma.JsonValue,
+            score: data.merchCheck.score,
+          },
+        });
+
+        // Créer les photos de merchandising si fournies
+        if (data.merchCheck.photos && data.merchCheck.photos.length > 0) {
+          await tx.merchPhoto.createMany({
+            data: data.merchCheck.photos.map((photo) => ({
+              merchCheckId: merchCheck.id,
+              fileKey: photo.fileKey,
+              takenAt: now,
+              lat: photo.lat,
+              lng: photo.lng,
+              meta: photo.meta as Prisma.JsonValue,
+            })),
+          });
+        }
+      }
+
+      // Si un ordre ID est fourni, mettre à jour l'ordre avec l'ID de la visite
+      if (data.orderId) {
+        await tx.order.update({
+          where: { id: data.orderId },
+          data: { visitId: visit.id },
+        });
+      }
+
+      console.log(' [VisitsService] Visite créée avec succès:', visit.id);
+      return visit;
+    });
+  }
+
+  /**
+   * Check-in : Début d'une visite
+   */
+  async checkIn(userId: string, data: CheckInDto) {
+    // Vérifier que l'outlet existe
+    const outlet = await this.prisma.outlet.findUnique({
+      where: { id: data.outletId },
+    });
+
+    if (!outlet) {
+      throw new NotFoundException(
+        `Point de vente ${data.outletId} introuvable`,
+      );
+    }
+
+    // Créer la visite avec check-in
+    return await this.prisma.visit.create({
+      data: {
+        outletId: data.outletId,
+        userId,
+        checkinAt: new Date(),
+        checkinLat: data.checkinLat,
+        checkinLng: data.checkinLng,
+        notes: data.notes,
+      },
+      include: {
+        outlet: true,
+        user: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+          },
+        },
+      },
+    });
+  }
+
+  /**
+   * Check-out : Fin d'une visite
+   */
+  async checkOut(userId: string, data: CheckOutDto) { 
+    // Récupérer la visite
+    const visit = await this.prisma.visit.findUnique({
+      where: { id: data.visitId },
+      include: {
+        outlet: true,
+      },
+    });
+
+    if (!visit) {
+      throw new NotFoundException(`Visite ${data.visitId} introuvable`);
+    }
+
+    // Vérifier que c'est bien l'utilisateur qui a créé la visite
+    if (visit.userId !== userId) {
+      throw new ForbiddenException(
+        'Vous ne pouvez pas terminer une visite que vous n avez pas créée',
+      );
+    }
+
+    // Vérifier que la visite n'est pas déjà terminée
+    if (visit.checkoutAt) {
+      throw new BadRequestException('Cette visite est déjà terminée');
+    }
+
+    // Calculer la durée en minutes
+    const durationMin = Math.round(
+      (new Date().getTime() - visit.checkinAt.getTime()) / 60000,
+    );
+
+    // Mettre à jour la visite avec check-out
+    return await this.prisma.visit.update({
+      where: { id: data.visitId },
+      data: {
+        checkoutAt: new Date(),
+        checkoutLat: data.checkoutLat,
+        checkoutLng: data.checkoutLng,
+        durationMin,
+        notes: data.notes || visit.notes,
+        score: data.score,
+      },
+      include: {
+        outlet: true,
+        user: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+          },
+        },
+        merchChecks: {
+          include: {
+            merchPhotos: true,
+          },
+        },
+        orders: true,
+      },
+    });
+  }
+
+  /**
+   * Mettre à jour le statut d'une visite
+   */
+  async updateVisitStatus(
+    visitId: string,
+    status: 'IN_PROGRESS' | 'COMPLETED',
+    userId: string,
+  ) {
+    // Vérifier que la visite appartient bien à l'utilisateur
+    const visit = await this.prisma.visit.findFirst({
+      where: {
+        id: visitId,
+        userId,
+      },
+    });
+
+    if (!visit) {
+      throw new NotFoundException('Visite non trouvée');
+    }
+
+    // Mettre à jour les timestamps selon le statut
+    const updateData: any = {};
+
+    if (status === 'IN_PROGRESS' && !visit.checkinAt) {
+      updateData.checkinAt = new Date();
+    }
+
+    if (status === 'COMPLETED' && !visit.checkoutAt) {
+      updateData.checkoutAt = new Date();
+    }
+
+    return await this.prisma.visit.update({
+      where: { id: visitId },
+      data: updateData,
+      include: {
+        outlet: true,
+        user: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+          },
+        },
+      },
+    });
+  }
+
+  /**
+   * Complète une visite existante avec les données finales
+   */
+  async completeExistingVisit(
+    visitId: string,
+    userId: string,
+    data: CompleteVisitDto,
+  ) {
+    // Vérifier que la visite existe et appartient à l'utilisateur
+    const visit = await this.prisma.visit.findFirst({
+      where: {
+        id: visitId,
+        userId,
+      },
+    });
+
+    if (!visit) {
+      throw new NotFoundException('Visite non trouvée');
+    }
+
+    // Mettre à jour la visite avec les données finales
+    return await this.prisma.visit.update({
+      where: { id: visitId },
+      data: {
+        checkoutAt: new Date(),
+        checkoutLat: data.checkoutLat,
+        checkoutLng: data.checkoutLng,
+        notes: data.notes || visit.notes,
+        score: data.score,
+        durationMin: Math.round(
+          (new Date().getTime() - visit.checkinAt.getTime()) / 60000,
+        ),
+      },
+      include: {
+        outlet: true,
+        user: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+          },
+        },
+        merchChecks: {
+          include: {
+            merchPhotos: true,
+          },
+        },
+        orders: true,
+      },
+    });
+  }
+
+  /**
+   * Terminer une visite avec toutes les données (merchandising, vente)
+   */
+  async completeVisit(userId: string, data: CompleteVisitDto) {
+    // Utiliser une transaction pour assurer la cohérence
+    return await this.prisma.$transaction(async (tx) => {
+      // Récupérer la visite
+      const visit = await tx.visit.findUnique({
+        where: { id: data.visitId },
+      });
+
+      if (!visit) {
+        throw new NotFoundException(`Visite ${data.visitId} introuvable`);
+      }
+
+      // Vérifier que c'est bien l'utilisateur qui a créé la visite
+      if (visit.userId !== userId) {
+        throw new ForbiddenException(
+          'Vous ne pouvez pas terminer une visite que vous n avez pas créée',
+        );
+      }
+
+      // Vérifier que la visite n'est pas déjà terminée
+      if (visit.checkoutAt) {
+        throw new BadRequestException('Cette visite est déjà terminée');
+      }
+
+      // Calculer la durée en minutes
+      const durationMin = Math.round(
+        (new Date().getTime() - visit.checkinAt.getTime()) / 60000,
+      );
+
+      // Mettre à jour la visite avec check-out
+      await tx.visit.update({
+        where: { id: data.visitId },
+        data: {
+          checkoutAt: new Date(),
+          checkoutLat: data.checkoutLat,
+          checkoutLng: data.checkoutLng,
+          durationMin,
+          notes: data.notes || visit.notes,
+          score: data.score,
+        },
+      });
+
+      // Si des données de merchandising sont fournies, créer le MerchCheck
+      if (data.merchCheck) {
+        const merchCheck = await tx.merchCheck.create({
+          data: {
+            visitId: visit.id,
+            checklist: data.merchCheck.checklist as Prisma.JsonValue,
+            planogram: data.merchCheck.planogram as Prisma.JsonValue,
+            score: data.merchCheck.score,
+          },
+        });
+
+        // Créer les photos de merchandising si fournies
+        if (data.merchCheck.photos && data.merchCheck.photos.length > 0) {
+          await tx.merchPhoto.createMany({
+            data: data.merchCheck.photos.map((photo) => ({
+              merchCheckId: merchCheck.id,
+              fileKey: photo.fileKey,
+              takenAt: new Date(),
+              lat: photo.lat,
+              lng: photo.lng,
+              meta: photo.meta as Prisma.JsonValue,
+            })),
+          });
+        }
+      }
+
+      // Si un order ID est fourni, mettre à jour l'order avec l'ID de la visite
+      if (data.orderId) {
+        await tx.order.update({
+          where: { id: data.orderId },
+          data: { visitId: visit.id },
+        });
+      }
+
+      // Retourner la visite complète avec toutes les relations
+      return await tx.visit.findUnique({
+        where: { id: visit.id },
+        include: {
+          outlet: true,
+          user: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              email: true,
+            },
+          },
+          merchChecks: {
+            include: {
+              merchPhotos: true,
+            },
+          },
+          orders: {
+            include: {
+              orderLines: {
+                include: {
+                  sku: true,
+                },
+              },
+              payments: true,
+            },
+          },
+        },
+      });
+    });
+  }
+
+  /**
+   * Récupérer les visites d'un utilisateur
+   */
+  async getUserVisits(
+    userId: string,
+    filters?: {
+      startDate?: Date;
+      endDate?: Date;
+      outletId?: string;
+    },
+  ) {
+    const where: Prisma.VisitWhereInput = {
+      userId,
+    };
+
+    if (filters?.startDate || filters?.endDate) {
+      where.checkinAt = {};
+      if (filters.startDate) {
+        where.checkinAt.gte = filters.startDate;
+      }
+      if (filters.endDate) {
+        where.checkinAt.lte = filters.endDate;
+      }
+    }
+
+    if (filters?.outletId) {
+      where.outletId = filters.outletId;
+    }
+
+    return await this.prisma.visit.findMany({
+      where,
+      include: {
+        outlet: true,
+        merchChecks: {
+          include: {
+            merchPhotos: true,
+          },
+        },
+        orders: {
+          include: {
+            orderLines: {
+              include: {
+                sku: true,
+              },
+            },
+          },
+        },
+      },
+      orderBy: {
+        checkinAt: 'desc',
+      },
+    });
+  }
+
+  /**
+   * Récupérer une visite par ID
+   */
+  async getVisitById(visitId: string, userId: string) {
+    const visit = await this.prisma.visit.findUnique({
+      where: { id: visitId },
+      include: {
+        outlet: true,
+        user: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+          },
+        },
+        merchChecks: {
+          include: {
+            merchPhotos: true,
+          },
+        },
+        orders: {
+          include: {
+            orderLines: {
+              include: {
+                sku: true,
+              },
+            },
+            payments: true,
+          },
+        },
+      },
+    });
+
+    if (!visit) {
+      throw new NotFoundException(`Visite ${visitId} introuvable`);
+    }
+
+    // Vérifier que l'utilisateur a le droit de voir cette visite
+    // (soit c'est sa visite, soit c'est un admin/superviseur)
+    // TODO: Ajouter la vérification des rôles
+
+    return visit;
+  }
+
+  /**
+   * Ajouter un merchandising à une visite existante
+   */
+  async addMerchCheck(
+    visitId: string,
+    userId: string,
+    data: CreateMerchCheckDto,
+  ) {
+    // Vérifier que la visite existe et appartient à l'utilisateur
+    const visit = await this.prisma.visit.findUnique({
+      where: { id: visitId },
+    });
+
+    if (!visit) {
+      throw new NotFoundException(`Visite ${visitId} introuvable`);
+    }
+
+    if (visit.userId !== userId) {
+      throw new ForbiddenException(
+        "Vous ne pouvez pas ajouter un merchandising à une visite que vous n'avez pas créée",
+      );
+    }
+
+    // Créer le MerchCheck
+    const merchCheck = await this.prisma.merchCheck.create({
+      data: {
+        visitId,
+        checklist: data.checklist as Prisma.JsonValue,
+        planogram: data.planogram as Prisma.JsonValue,
+        score: data.score,
+      },
+    });
+
+    // Créer les photos si fournies
+    if (data.photos && data.photos.length > 0) {
+      await this.prisma.merchPhoto.createMany({
+        data: data.photos.map((photo) => ({
+          merchCheckId: merchCheck.id,
+          fileKey: photo.fileKey,
+          takenAt: new Date(),
+          lat: photo.lat,
+          lng: photo.lng,
+          meta: photo.meta as Prisma.JsonValue,
+        })),
+      });
+    }
+
+    return merchCheck;
+  }
+
+  /**
+   * Lier une vente à une visite
+   */
+  async linkOrderToVisit(visitId: string, orderId: string, userId: string) {
+    // Vérifier que la visite existe et appartient à l'utilisateur
+    const visit = await this.prisma.visit.findUnique({
+      where: { id: visitId },
+    });
+
+    if (!visit) {
+      throw new NotFoundException(`Visite ${visitId} introuvable`);
+    }
+
+    if (visit.userId !== userId) {
+      throw new ForbiddenException(
+        'Vous ne pouvez pas lier une vente à une visite que vous n avez pas créée',
+      );
+    }
+
+    // Vérifier que l'ordre existe et appartient à l'utilisateur
+    const order = await this.prisma.order.findUnique({
+      where: { id: orderId },
+    });
+
+    if (!order) {
+      throw new NotFoundException(`Commande ${orderId} introuvable`);
+    }
+
+    if (order.userId !== userId) {
+      throw new ForbiddenException(
+        'Vous ne pouvez pas lier une vente qui ne vous appartient pas',
+      );
+    }
+
+    // Lier l'ordre à la visite
+    return await this.prisma.order.update({
+      where: { id: orderId },
+      data: { visitId },
+    });
+  }
+}

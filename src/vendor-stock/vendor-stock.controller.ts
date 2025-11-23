@@ -19,6 +19,14 @@ import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { RoleEnum } from '@prisma/client';
 
+interface AuthenticatedRequest {
+  user: {
+    userId: string;
+    email: string;
+    role: string;
+  };
+}
+
 @ApiTags('Vendor Stock')
 @Controller('vendor-stock')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -37,7 +45,7 @@ export class VendorStockController {
     status: 200,
     description: 'Stock récupéré avec succès',
   })
-  async getMyStock(@Request() req) {
+  async getMyStock(@Request() req: AuthenticatedRequest) {
     return this.vendorStockService.getVendorStock(req.user.userId);
   }
 
@@ -51,7 +59,7 @@ export class VendorStockController {
     status: 200,
     description: 'Statistiques récupérées avec succès',
   })
-  async getStats(@Request() req) {
+  async getStats(@Request() req: AuthenticatedRequest) {
     return this.vendorStockService.getVendorStockStats(req.user.userId);
   }
 
@@ -66,7 +74,7 @@ export class VendorStockController {
     description: 'Stock ajouté avec succès',
   })
   async addStock(
-    @Request() req,
+    @Request() req: AuthenticatedRequest,
     @Body()
     body: { items: Array<{ skuId: string; quantity: number }>; notes?: string },
   ) {
@@ -87,7 +95,7 @@ export class VendorStockController {
     status: 200,
     description: 'Portefeuille récupéré avec succès',
   })
-  async getMyPortfolio(@Request() req) {
+  async getMyPortfolio(@Request() req: AuthenticatedRequest) {
     return this.vendorStockService.getMyPortfolio(req.user.userId);
   }
 
@@ -102,7 +110,7 @@ export class VendorStockController {
     description: 'Produits récupérés avec succès',
   })
   async getLowStockItems(
-    @Request() req,
+    @Request() req: AuthenticatedRequest,
     @Query('threshold') threshold?: number,
   ) {
     return this.vendorStockService.getLowStockItems(
@@ -122,14 +130,22 @@ export class VendorStockController {
     description: 'Historique récupéré avec succès',
   })
   async getHistory(
-    @Request() req,
-    @Query('movementType') movementType?: string,
+    @Request() req: AuthenticatedRequest,
+    @Query('movementType')
+    movementType?: 'ADD' | 'REMOVE' | 'SALE' | 'ADJUSTMENT',
     @Query('skuId') skuId?: string,
     @Query('startDate') startDate?: string,
     @Query('endDate') endDate?: string,
     @Query('limit') limit?: number,
   ) {
-    const filters: any = {};
+    const filters: {
+      movementType?: 'ADD' | 'REMOVE' | 'SALE' | 'ADJUSTMENT';
+      skuId?: string;
+      startDate?: Date;
+      endDate?: Date;
+      limit?: number;
+    } = {};
+
     if (movementType) filters.movementType = movementType;
     if (skuId) filters.skuId = skuId;
     if (startDate) filters.startDate = new Date(startDate);

@@ -13,6 +13,7 @@ import {
 import { RoutesService } from './routes.service';
 import { CreateRouteDto } from './dto/create-route.dto';
 import { GenerateRouteDto } from './dto/generate-route.dto';
+import { GenerateMultiDayRouteDto } from './dto/generate-multi-day-route.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -142,16 +143,7 @@ export class RoutesController {
    */
   @Post('generate-multi-day')
   @Roles(RoleEnum.ADMIN, RoleEnum.SUP)
-  async generateMultiDayRoutes(
-    @Body()
-    data: {
-      userId: string;
-      startDate: string;
-      numberOfDays: number;
-      outletsPerDay?: number;
-      optimize?: boolean;
-    },
-  ) {
+  async generateMultiDayRoutes(@Body() data: GenerateMultiDayRouteDto) {
     return this.routesService.generateMultiDayRoutes(data);
   }
 
@@ -173,13 +165,10 @@ export class RoutesController {
   async optimizeRoute(@Param('id') id: string) {
     // Récupérer la route actuelle
     const route = await this.routesService.findOne(id);
-    
     // Récupérer les outlets
     const outletIds = route.routeStops?.map(s => s.outletId) || [];
-    
     // Supprimer l'ancienne route
     await this.routesService.remove(id);
-    
     // Regénérer avec optimisation
     return this.routesService.generateRoute({
       userId: route.userId,

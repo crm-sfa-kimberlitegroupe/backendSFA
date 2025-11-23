@@ -757,7 +757,7 @@ export class UsersService {
   /**
    * Mapper un utilisateur Prisma vers l'entité User
    */
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  /* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access */
   private mapPrismaUserToEntity(prismaUser: any): User {
     return {
       id: prismaUser.id,
@@ -785,4 +785,5 @@ export class UsersService {
       updatedAt: prismaUser.updatedAt,
     };
   }
+  /* eslint-enable */
 }

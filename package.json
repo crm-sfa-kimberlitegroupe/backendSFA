@@ -26,6 +26,7 @@
     "prisma:migrate:deploy": "prisma migrate deploy",
     "prisma:studio": "prisma studio",
     "prisma:seed": "ts-node prisma/seed.ts",
+    "seed:ultra": "ts-node prisma/seed-ultra-complete.ts",
     "postinstall": "prisma generate"
   },
   "dependencies": {

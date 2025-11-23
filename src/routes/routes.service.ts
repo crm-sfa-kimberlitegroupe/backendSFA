@@ -105,29 +105,38 @@ export class RoutesService {
     const route = await this.prisma.routePlan.findUnique({
       where: { id },
       include: {
+        //  Utilisateur avec données de base seulement
         user: {
           select: {
             id: true,
             firstName: true,
             lastName: true,
             email: true,
+            assignedSectorId: true,
           },
         },
+        // RouteStops avec outlets complets
         routeStops: {
           include: {
-            outlet: {
-              select: {
-                id: true,
-                code: true,
-                name: true,
-                address: true,
-                lat: true,
-                lng: true,
-              },
-            },
+            outlet: true, // TOUS les champs outlet
           },
           orderBy: {
             seq: 'asc',
+          },
+        },
+        // Secteur de la route
+        sector: true,
+        // Mappings SKU du vendeur
+        sellerSKUGroupMappings: {
+          include: {
+            group: true,
+            seller: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+              },
+            },
           },
         },
       },
@@ -148,8 +157,13 @@ export class RoutesService {
   /**
    * Créer une nouvelle route
    */
-  async create(data: { userId: string; date: string; outletIds: string[]}) {
-    const { userId, date, outletIds } = data;
+  async create(data: {
+    userId: string;
+    date: string;
+    outletIds: string[];
+    sectorId?: string;
+  }) {
+    const { userId, date, outletIds, sectorId } = data;
 
     // Vérifier si une route existe déjà pour cet utilisateur à cette date
     const existing = await this.prisma.routePlan.findFirst({
@@ -169,6 +183,7 @@ export class RoutesService {
     return this.prisma.routePlan.create({
       data: {
         userId,
+        sectorId, // Ajouter l'ID du secteur
         date: new Date(date),
         status: RouteStatusEnum.PLANNED,
         routeStops: {
@@ -602,7 +617,14 @@ export class RoutesService {
     maxOutlets?: number;
     maxDistance?: number;
   }) {
-    const { userId, date, outletIds, optimize = true, maxOutlets, maxDistance } = data;
+    const {
+      userId,
+      date,
+      outletIds,
+      optimize = true,
+      maxOutlets,
+      maxDistance,
+    } = data;
 
     // Récupérer l'utilisateur et son secteur
     const vendorData = await this.getVendorSectorOutlets(userId);
@@ -649,6 +671,7 @@ export class RoutesService {
       userId,
       date,
       outletIds: orderedOutletIds,
+      sectorId: vendorData.sector?.id, // Ajouter l'ID du secteur
     });
 
     // Retourner avec les métriques
@@ -671,12 +694,60 @@ export class RoutesService {
     numberOfDays: number;
     outletsPerDay?: number;
     optimize?: boolean;
+    sectorId?: string; // ID du secteur du vendeur
   }) {
-    const { userId, startDate, numberOfDays, outletsPerDay = 8, optimize = true } = data;
+    const {
+      userId,
+      startDate,
+      numberOfDays,
+      outletsPerDay = 8,
+      optimize = true,
+      sectorId,
+    } = data;
 
     // Récupérer tous les outlets du secteur
-    const vendorData = await this.getVendorSectorOutlets(userId);
-    const allOutlets = vendorData.outlets;
+    let vendorData;
+    let allOutlets;
+    if (sectorId) {
+      // Si un sectorId spécifique est fourni, l'utiliser
+      console.log(`🔍 Utilisation du secteur spécifié: ${sectorId}`);
+      const sector = await this.prisma.territory.findUnique({
+        where: { id: sectorId },
+        include: {
+          outletsSector: {
+            where: {
+              status: 'APPROVED',
+            },
+            select: {
+              id: true,
+              code: true,
+              name: true,
+              address: true,
+              lat: true,
+              lng: true,
+              status: true,
+            },
+          },
+        },
+      });
+      if (!sector) {
+        throw new NotFoundException(`Secteur avec l'ID ${sectorId} introuvable`);
+      }
+      allOutlets = sector.outletsSector || [];
+      vendorData = {
+        sector: {
+          id: sector.id,
+          code: sector.code,
+          name: sector.name,
+        },
+        outlets: allOutlets,
+      };
+    } else {
+      // Utiliser le secteur assigné au vendeur
+      console.log(`🔍 Utilisation du secteur assigné au vendeur: ${userId}`);
+      vendorData = await this.getVendorSectorOutlets(userId);
+      allOutlets = vendorData.outlets;
+    }
 
     if (allOutlets.length === 0) {
       throw new ForbiddenException('Aucun point de vente disponible');
@@ -716,7 +787,7 @@ export class RoutesService {
       const route = await this.generateRoute({
         userId,
         date: dateStr,
-        outletIds: dayOutlets.map(o => o.id),
+        outletIds: dayOutlets.map((o) => o.id),
         optimize,
       });
 
@@ -768,14 +839,18 @@ export class RoutesService {
 
     const order = route.routeStops.map(stop => stop.outletId);
     const distance = this.calculateTotalDistance(outlets, order);
-    const estimatedTime = this.estimateTotalTime(distance, route.routeStops.length);
+    const estimatedTime = this.estimateTotalTime(
+      distance,
+      route.routeStops.length,
+    );
 
     return {
       routeId: route.id,
       totalDistance: distance,
       estimatedTime,
       numberOfOutlets: route.routeStops.length,
-      numberOfVisited: route.routeStops.filter(s => s.status === 'VISITED').length,
+      numberOfVisited: route.routeStops.filter((s) => s.status === 'VISITED')
+        .length,
     };
   }
 }

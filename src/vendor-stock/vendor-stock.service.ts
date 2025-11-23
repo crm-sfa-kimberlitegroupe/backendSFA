@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { Prisma } from '@prisma/client';
 
 @Injectable()
 export class VendorStockService {
@@ -11,7 +12,9 @@ export class VendorStockService {
    * Récupère le stock complet d'un vendeur avec les informations des SKUs
    */
   async getVendorStock(userId: string) {
-    this.logger.log(`📦 [getVendorStock] Récupération stock pour vendeur ${userId}`);
+    this.logger.log(
+      `[getVendorStock] Récupération stock pour vendeur ${userId}`,
+    );
 
     const vendorStock = await this.prisma.vendorStock.findMany({
       where: {
@@ -124,7 +127,7 @@ export class VendorStockService {
     notes?: string,
   ) {
     this.logger.log(
-      `📦 [addStock] Ajout stock pour vendeur ${userId}, ${items.length} produits`,
+      `[addStock] Ajout stock pour vendeur ${userId}, ${items.length} produits`,
     );
 
     return this.prisma.$transaction(async (prisma) => {
@@ -188,7 +191,7 @@ export class VendorStockService {
       }
 
       this.logger.log(
-        `✅ [addStock] Stock ajouté avec succès pour ${results.length} produits`,
+        ` [addStock] Stock ajouté avec succès pour ${results.length} produits`,
       );
 
       return {
@@ -245,12 +248,18 @@ export class VendorStockService {
         userId,
         OR: [
           {
-            alertThreshold: {
-              not: null,
-            },
-            quantity: {
-              lte: this.prisma.vendorStock.fields.alertThreshold,
-            },
+            AND: [
+              {
+                alertThreshold: {
+                  not: null,
+                },
+              },
+              {
+                quantity: {
+                  lte: threshold,
+                },
+              },
+            ],
           },
           {
             alertThreshold: null,
@@ -278,14 +287,17 @@ export class VendorStockService {
   /**
    * Récupère l'historique des mouvements
    */
-  async getHistory(userId: string, filters?: {
-    movementType?: string;
-    skuId?: string;
-    startDate?: Date;
-    endDate?: Date;
-    limit?: number;
-  }) {
-    const where: any = { userId };
+  async getHistory(
+    userId: string,
+    filters?: {
+      movementType?: 'ADD' | 'REMOVE' | 'SALE' | 'ADJUSTMENT';
+      skuId?: string;
+      startDate?: Date;
+      endDate?: Date;
+      limit?: number;
+    },
+  ) {
+    const where: Prisma.StockHistoryWhereInput = { userId };
 
     if (filters?.movementType) {
       where.movementType = filters.movementType;

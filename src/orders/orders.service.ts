@@ -140,206 +140,200 @@ export class OrdersService {
 
     // Étape 3 : Transaction atomique pour créer la vente et mettre à jour le stock
     try {
-      const result = await this.prisma.$transaction(async (tx) => {
-        // 3.1 : Créer l'Order
-        const order = await tx.order.create({
-          data: {
-            outletId: createOrderDto.outletId,
-            userId,
-            visitId: createOrderDto.visitId,
-            status: createOrderDto.status || OrderStatusEnum.DRAFT,
-            currency: 'XOF',
-            discountTotal: new Decimal(0),
-            taxTotal: new Decimal(0),
-            totalHt: new Decimal(0),
-            totalTtc: new Decimal(0),
-          },
-        });
+      const result = await this.prisma.$transaction(
+        async (tx) => {
+          // 3.1 : Créer l'Order
+          const order = await tx.order.create({
+            data: {
+              outletId: createOrderDto.outletId,
+              userId,
+              visitId: createOrderDto.visitId,
+              status: createOrderDto.status || OrderStatusEnum.DRAFT,
+              currency: 'XOF',
+              discountTotal: new Decimal(0),
+              taxTotal: new Decimal(0),
+              totalHt: new Decimal(0),
+              totalTtc: new Decimal(0),
+            },
+          });
 
-        this.logger.log(`📝 Order créé : ${order.id}`);
+          this.logger.log(`📝 Order créé : ${order.id}`);
 
-        // 3.2 : Créer les OrderLines avec calculs
-        let totalHt = new Decimal(0);
-        let totalTtc = new Decimal(0);
-        let totalDiscount = new Decimal(0);
+          // 3.2 : Créer les OrderLines avec calculs
+          let totalHt = new Decimal(0);
+          let totalTtc = new Decimal(0);
+          let totalDiscount = new Decimal(0);
 
-        const orderLines = await Promise.all(
-          createOrderDto.orderLines.map(async (lineDto) => {
-            const sku = skuMap.get(lineDto.skuId);
+          const orderLines = await Promise.all(
+            createOrderDto.orderLines.map(async (lineDto) => {
+              const sku = skuMap.get(lineDto.skuId);
 
-            // Utiliser le prix du DTO ou celui du SKU
-            const unitPrice = lineDto.unitPrice
-              ? new Decimal(lineDto.unitPrice)
-              : sku.priceHt;
-            const vatRate = lineDto.vatRate
-              ? new Decimal(lineDto.vatRate)
-              : sku.vatRate;
+              // Utiliser le prix du DTO ou celui du SKU
+              const unitPrice = lineDto.unitPrice
+                ? new Decimal(lineDto.unitPrice)
+                : sku.priceHt;
+              const vatRate = lineDto.vatRate
+                ? new Decimal(lineDto.vatRate)
+                : sku.vatRate;
 
-            // Calculs
-            const lineTotalHt = unitPrice.mul(lineDto.qty);
-            const lineTotalTtc = lineTotalHt.mul(
-              new Decimal(1).add(vatRate.div(100)),
-            );
-
-            // Accumuler les totaux
-            totalHt = totalHt.add(lineTotalHt);
-            totalTtc = totalTtc.add(lineTotalTtc);
-
-            // Gérer les promotions
-            if (lineDto.discountAmount) {
-              totalDiscount = totalDiscount.add(
-                new Decimal(lineDto.discountAmount).mul(lineDto.qty),
+              // Calculs
+              const lineTotalHt = unitPrice.mul(lineDto.qty);
+              const lineTotalTtc = lineTotalHt.mul(
+                new Decimal(1).add(vatRate.div(100)),
               );
-            }
 
-            // Créer la ligne
-            const orderLine = await tx.orderLine.create({
-              data: {
-                orderId: order.id,
-                skuId: lineDto.skuId,
-                qty: lineDto.qty,
-                unitPrice,
-                vatRate,
-                lineTotalHt,
-                lineTotalTtc,
-                promotionId: lineDto.promotionId,
-                originalUnitPrice: lineDto.originalUnitPrice
-                  ? new Decimal(lineDto.originalUnitPrice)
-                  : null,
-                discountAmount: lineDto.discountAmount
-                  ? new Decimal(lineDto.discountAmount)
-                  : null,
-              },
-              include: {
-                sku: {
-                  include: {
-                    packSize: {
-                      include: {
-                        packFormat: {
-                          include: {
-                            brand: true,
-                          },
-                        },
-                      },
-                    },
-                  },
-                },
-              },
-            });
+              // Accumuler les totaux
+              totalHt = totalHt.add(lineTotalHt);
+              totalTtc = totalTtc.add(lineTotalTtc);
 
-            this.logger.log(
-              `  ➕ Ligne ajoutée : ${sku.shortDescription} x${lineDto.qty}`,
-            );
+              // Gérer les promotions
+              if (lineDto.discountAmount) {
+                totalDiscount = totalDiscount.add(
+                  new Decimal(lineDto.discountAmount).mul(lineDto.qty),
+                );
+              }
 
-            return orderLine;
-          }),
-        );
-
-        // 3.3 : Mettre à jour les totaux de l'Order
-        const taxTotal = totalTtc.sub(totalHt);
-
-        await tx.order.update({
-          where: { id: order.id },
-          data: {
-            totalHt,
-            totalTtc,
-            taxTotal,
-            discountTotal: totalDiscount,
-          },
-        });
-
-        this.logger.log(
-          `💰 Totaux calculés - HT: ${totalHt}, TTC: ${totalTtc}, TVA: ${taxTotal}`,
-        );
-
-        // 3.4 : Déduire le stock du portefeuille du vendeur
-        await Promise.all(
-          createOrderDto.orderLines.map(async (lineDto) => {
-            const currentStock = await tx.vendorStock.findUnique({
-              where: {
-                userId_skuId: {
-                  userId,
-                  skuId: lineDto.skuId,
-                },
-              },
-            });
-
-            const beforeQty = currentStock.quantity;
-            const afterQty = beforeQty - lineDto.qty;
-
-            // Mettre à jour le stock
-            await tx.vendorStock.update({
-              where: {
-                userId_skuId: {
-                  userId,
-                  skuId: lineDto.skuId,
-                },
-              },
-              data: {
-                quantity: afterQty,
-              },
-            });
-
-            // Créer l'historique
-            await tx.stockHistory.create({
-              data: {
-                userId,
-                skuId: lineDto.skuId,
-                movementType: 'SALE',
-                quantity: -lineDto.qty,
-                beforeQty,
-                afterQty,
-                orderId: order.id,
-                notes: `Vente au PDV ${outlet.name}`,
-              },
-            });
-
-            this.logger.log(
-              `  📦 Stock mis à jour pour SKU ${lineDto.skuId}: ${beforeQty} → ${afterQty}`,
-            );
-          }),
-        );
-
-        // 3.5 : Créer les paiements si fournis
-        let payments = [];
-        if (createOrderDto.payments && createOrderDto.payments.length > 0) {
-          payments = await Promise.all(
-            createOrderDto.payments.map((paymentDto) =>
-              tx.payment.create({
+              // Créer la ligne
+              const orderLine = await tx.orderLine.create({
                 data: {
                   orderId: order.id,
-                  method: paymentDto.method,
-                  amount: new Decimal(paymentDto.amount),
-                  paidAt: paymentDto.paidAt
-                    ? new Date(paymentDto.paidAt)
-                    : new Date(),
-                  transactionRef: paymentDto.transactionRef,
-                  meta: paymentDto.meta,
+                  skuId: lineDto.skuId,
+                  qty: lineDto.qty,
+                  unitPrice,
+                  vatRate,
+                  lineTotalHt,
+                  lineTotalTtc,
+                  discountAmount: lineDto.discountAmount
+                    ? new Decimal(lineDto.discountAmount)
+                    : new Decimal(0),
+                  promotionId: lineDto.promotionId,
                 },
-              }),
-            ),
+              });
+
+              this.logger.log(
+                `📄 OrderLine créée : ${orderLine.id} (SKU: ${lineDto.skuId})`,
+              );
+
+              // 3.3 : Mettre à jour le stock du vendeur
+              const vendorStock = await tx.vendorStock.findUnique({
+                where: {
+                  userId_skuId: {
+                    userId,
+                    skuId: lineDto.skuId,
+                  },
+                },
+              });
+
+              if (!vendorStock) {
+                throw new BadRequestException(
+                  `Stock non trouvé pour SKU ${lineDto.skuId}`,
+                );
+              }
+
+              const beforeQty = vendorStock.quantity;
+              const afterQty = beforeQty - lineDto.qty;
+
+              if (afterQty < 0) {
+                throw new BadRequestException(
+                  `Stock insuffisant pour SKU ${lineDto.skuId}: ${beforeQty} disponible, ${lineDto.qty} demandé`,
+                );
+              }
+
+              // Mettre à jour le stock
+              await tx.vendorStock.update({
+                where: {
+                  userId_skuId: {
+                    userId,
+                    skuId: lineDto.skuId,
+                  },
+                },
+                data: {
+                  quantity: afterQty,
+                },
+              });
+
+              // Créer l'historique
+              await tx.stockHistory.create({
+                data: {
+                  userId,
+                  skuId: lineDto.skuId,
+                  movementType: 'SALE',
+                  quantity: -lineDto.qty,
+                  beforeQty,
+                  afterQty,
+                  orderId: order.id,
+                  notes: `Vente au PDV ${outlet.name}`,
+                },
+              });
+
+              this.logger.log(
+                `  📦 Stock mis à jour pour SKU ${lineDto.skuId}: ${beforeQty} → ${afterQty}`,
+              );
+
+              return orderLine;
+            }),
           );
 
-          this.logger.log(`💳 ${payments.length} paiement(s) enregistré(s)`);
-        }
+          this.logger.log(`📦 ${orderLines.length} OrderLines créées`);
 
-        // Retourner l'order complet avec toutes les relations
-        return tx.order.findUnique({
-          where: { id: order.id },
-          include: {
-            orderLines: {
-              include: {
-                sku: {
-                  include: {
-                    packSize: {
-                      include: {
-                        packFormat: {
-                          include: {
-                            brand: {
-                              include: {
-                                subCategory: {
-                                  include: {
-                                    category: true,
+          // 3.4 : Mettre à jour les totaux de l'Order
+          const finalTotalHt = totalHt.sub(totalDiscount);
+          const finalTaxTotal = totalTtc.sub(finalTotalHt);
+
+          await tx.order.update({
+            where: { id: order.id },
+            data: {
+              totalHt: finalTotalHt,
+              totalTtc: totalTtc,
+              taxTotal: finalTaxTotal,
+              discountTotal: totalDiscount,
+            },
+          });
+
+          this.logger.log(
+            `💰 Totaux mis à jour - HT: ${finalTotalHt.toString()}, TTC: ${totalTtc.toString()}, Tax: ${finalTaxTotal.toString()}`,
+          );
+
+          // 3.5 : Créer les paiements si fournis
+          if (createOrderDto.payments && createOrderDto.payments.length > 0) {
+            const payments = await Promise.all(
+              createOrderDto.payments.map((payment) =>
+                tx.payment.create({
+                  data: {
+                    orderId: order.id,
+                    method: payment.method,
+                    amount: new Decimal(payment.amount),
+                    paidAt: payment.paidAt
+                      ? new Date(payment.paidAt)
+                      : new Date(),
+                    transactionRef: payment.transactionRef,
+                    meta: payment.meta as Prisma.JsonObject,
+                  },
+                }),
+              ),
+            );
+
+            this.logger.log(`💳 ${payments.length} paiement(s) enregistré(s)`);
+          }
+
+          // Retourner l'order complet avec toutes les relations
+          return tx.order.findUnique({
+            where: { id: order.id },
+            include: {
+              orderLines: {
+                include: {
+                  sku: {
+                    include: {
+                      packSize: {
+                        include: {
+                          packFormat: {
+                            include: {
+                              brand: {
+                                include: {
+                                  subCategory: {
+                                    include: {
+                                      category: true,
+                                    },
                                   },
                                 },
                               },
@@ -351,20 +345,23 @@ export class OrdersService {
                   },
                 },
               },
-            },
-            payments: true,
-            outlet: true,
-            user: {
-              select: {
-                id: true,
-                firstName: true,
-                lastName: true,
-                email: true,
+              payments: true,
+              outlet: true,
+              user: {
+                select: {
+                  id: true,
+                  firstName: true,
+                  lastName: true,
+                  email: true,
+                },
               },
             },
-          },
-        });
-      });
+          });
+        },
+        {
+          timeout: 30000, // 30 secondes au lieu de 5 par défaut
+        },
+      );
 
       this.logger.log(`✅ Vente ${result.id} créée avec succès`);
 
@@ -375,8 +372,10 @@ export class OrdersService {
       };
     } catch (error) {
       this.logger.error('❌ Erreur lors de la transaction:', error);
+      const errorMessage =
+        error instanceof Error ? error.message : 'Erreur inconnue';
       throw new BadRequestException(
-        `Erreur lors de la création de la vente: ${error.message}`,
+        `Erreur lors de la création de la vente: ${errorMessage}`,
       );
     }
   }

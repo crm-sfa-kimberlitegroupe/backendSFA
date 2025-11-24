@@ -91,13 +91,6 @@ export class OutletsController {
   ) {
     const userTerritoryId = req?.user?.territoryId;
 
-    // 🔍 LOGS DE DEBUG
-    console.log('📍 [my-territory] Requête reçue');
-    console.log('📍 User:', req?.user);
-    console.log('📍 TerritoryId de l utilisateur:', userTerritoryId);
-    console.log('📍 Status demandé:', status);
-    console.log('📍 Channel demandé:', channel);
-
     if (!userTerritoryId) {
       console.error('❌ Pas de territoryId dans le JWT');
       throw new ForbiddenException(
@@ -112,9 +105,7 @@ export class OutletsController {
       channel,
     };
 
-    console.log('📍 Filtres appliqués:', filters);
     const result = await this.outletsService.findAll(filters);
-    console.log('📍 Nombre de PDV trouvés:', result?.length || 0);
     return result;
   }
 

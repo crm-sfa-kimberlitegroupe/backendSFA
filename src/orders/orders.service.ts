@@ -392,17 +392,32 @@ export class OrdersService {
       endDate?: Date;
     },
   ) {
+    // Gestion correcte des filtres de date
+    let dateFilter: Prisma.OrderWhereInput = {};
+    if (filters?.startDate || filters?.endDate) {
+      const createdAtFilter: { gte?: Date; lte?: Date } = {};
+
+      if (filters.startDate) {
+        // Début de la journée (00:00:00)
+        const startOfDay = new Date(filters.startDate);
+        startOfDay.setHours(0, 0, 0, 0);
+        createdAtFilter.gte = startOfDay;
+      }
+
+      if (filters.endDate) {
+        // Fin de la journée (23:59:59.999)
+        const endOfDay = new Date(filters.endDate);
+        endOfDay.setHours(23, 59, 59, 999);
+        createdAtFilter.lte = endOfDay;
+      }
+      dateFilter = { createdAt: createdAtFilter };
+    }
+
     const where: Prisma.OrderWhereInput = {
       userId,
       ...(filters?.outletId && { outletId: filters.outletId }),
       ...(filters?.status && { status: filters.status }),
-      ...(filters?.startDate &&
-        filters?.endDate && {
-          createdAt: {
-            gte: filters.startDate,
-            lte: filters.endDate,
-          },
-        }),
+      ...dateFilter,
     };
 
     const orders = await this.prisma.order.findMany({
@@ -426,7 +441,6 @@ export class OrdersService {
           },
         },
         payments: true,
-        outlet: true,
       },
       orderBy: {
         createdAt: 'desc',

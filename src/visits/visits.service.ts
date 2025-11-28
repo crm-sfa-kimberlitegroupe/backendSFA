@@ -614,4 +614,302 @@ export class VisitsService {
       data: { visitId },
     });
   }
+
+  /**
+   * Mettre à jour toutes les ventes d'une visite
+   */
+  async updateVisitOrders(
+    visitId: string,
+    orderIds: string[],
+    userId: string,
+  ) {
+    // Vérifier que la visite existe et appartient à l'utilisateur
+    const visit = await this.prisma.visit.findUnique({
+      where: { id: visitId },
+    });
+
+    if (!visit) {
+      throw new NotFoundException(`Visite ${visitId} introuvable`);
+    }
+
+    if (visit.userId !== userId) {
+      throw new ForbiddenException(
+        'Vous ne pouvez pas modifier une visite que vous n avez pas créée',
+      );
+    }
+
+    // Vérifier que toutes les ventes existent et appartiennent à l'utilisateur
+    const orders = await this.prisma.order.findMany({
+      where: {
+        id: { in: orderIds },
+        userId,
+      },
+    });
+
+    if (orders.length !== orderIds.length) {
+      throw new NotFoundException(
+        'Une ou plusieurs ventes sont introuvables ou ne vous appartiennent pas',
+      );
+    }
+
+    // Mettre à jour toutes les ventes pour les lier à la visite
+    await this.prisma.order.updateMany({
+      where: {
+        id: { in: orderIds },
+      },
+      data: {
+        visitId,
+      },
+    });
+
+    // Retourner la visite avec les ventes
+    return await this.prisma.visit.findUnique({
+      where: { id: visitId },
+      include: {
+        orders: true,
+        merchChecks: true,
+      },
+    });
+  }
+
+  /**
+   * Ajouter une vente à une visite
+   */
+  async addOrderToVisit(visitId: string, orderId: string, userId: string) {
+    // Vérifier que la visite existe et appartient à l'utilisateur
+    const visit = await this.prisma.visit.findUnique({
+      where: { id: visitId },
+    });
+
+    if (!visit) {
+      throw new NotFoundException(`Visite ${visitId} introuvable`);
+    }
+
+    if (visit.userId !== userId) {
+      throw new ForbiddenException(
+        'Vous ne pouvez pas modifier une visite que vous n avez pas créée',
+      );
+    }
+
+    // Vérifier que la vente existe et appartient à l'utilisateur
+    const order = await this.prisma.order.findUnique({
+      where: { id: orderId },
+    });
+
+    if (!order) {
+      throw new NotFoundException(`Vente ${orderId} introuvable`);
+    }
+
+    if (order.userId !== userId) {
+      throw new ForbiddenException(
+        'Vous ne pouvez pas ajouter une vente qui ne vous appartient pas',
+      );
+    }
+
+    // Lier la vente à la visite
+    await this.prisma.order.update({
+      where: { id: orderId },
+      data: { visitId },
+    });
+
+    // Retourner la visite avec les ventes
+    return await this.prisma.visit.findUnique({
+      where: { id: visitId },
+      include: {
+        orders: true,
+        merchChecks: true,
+      },
+    });
+  }
+
+  /**
+   * Supprimer une vente d'une visite
+   */
+  async removeOrderFromVisit(
+    visitId: string,
+    orderId: string,
+    userId: string,
+  ) {
+    // Vérifier que la visite existe et appartient à l'utilisateur
+    const visit = await this.prisma.visit.findUnique({
+      where: { id: visitId },
+    });
+
+    if (!visit) {
+      throw new NotFoundException(`Visite ${visitId} introuvable`);
+    }
+
+    if (visit.userId !== userId) {
+      throw new ForbiddenException(
+        'Vous ne pouvez pas modifier une visite que vous n avez pas créée',
+      );
+    }
+
+    // Vérifier que la vente existe
+    const order = await this.prisma.order.findUnique({
+      where: { id: orderId },
+    });
+
+    if (!order) {
+      throw new NotFoundException(`Vente ${orderId} introuvable`);
+    }
+
+    // Délier la vente de la visite
+    await this.prisma.order.update({
+      where: { id: orderId },
+      data: { visitId: null },
+    });
+
+    // Retourner la visite avec les ventes
+    return await this.prisma.visit.findUnique({
+      where: { id: visitId },
+      include: {
+        orders: true,
+        merchChecks: true,
+      },
+    });
+  }
+
+  /**
+   * Mettre à jour tous les merchandising d'une visite
+   */
+  async updateVisitMerchandising(
+    visitId: string,
+    merchIds: string[],
+    userId: string,
+  ) {
+    // Vérifier que la visite existe et appartient à l'utilisateur
+    const visit = await this.prisma.visit.findUnique({
+      where: { id: visitId },
+    });
+
+    if (!visit) {
+      throw new NotFoundException(`Visite ${visitId} introuvable`);
+    }
+
+    if (visit.userId !== userId) {
+      throw new ForbiddenException(
+        'Vous ne pouvez pas modifier une visite que vous n avez pas créée',
+      );
+    }
+
+    // Vérifier que tous les merchandising existent et appartiennent à la visite
+    const merchChecks = await this.prisma.merchCheck.findMany({
+      where: {
+        id: { in: merchIds },
+        visitId,
+      },
+    });
+
+    if (merchChecks.length !== merchIds.length) {
+      throw new NotFoundException(
+        'Un ou plusieurs merchandising sont introuvables ou n appartiennent pas à cette visite',
+      );
+    }
+
+    // Retourner la visite avec les merchandising
+    return await this.prisma.visit.findUnique({
+      where: { id: visitId },
+      include: {
+        orders: true,
+        merchChecks: true,
+      },
+    });
+  }
+
+  /**
+   * Ajouter un merchandising à une visite
+   */
+  async addMerchandisingToVisit(
+    visitId: string,
+    merchId: string,
+    userId: string,
+  ) {
+    // Vérifier que la visite existe et appartient à l'utilisateur
+    const visit = await this.prisma.visit.findUnique({
+      where: { id: visitId },
+    });
+
+    if (!visit) {
+      throw new NotFoundException(`Visite ${visitId} introuvable`);
+    }
+
+    if (visit.userId !== userId) {
+      throw new ForbiddenException(
+        'Vous ne pouvez pas modifier une visite que vous n avez pas créée',
+      );
+    }
+
+    // Vérifier que le merchandising existe
+    const merchCheck = await this.prisma.merchCheck.findUnique({
+      where: { id: merchId },
+    });
+
+    if (!merchCheck) {
+      throw new NotFoundException(`Merchandising ${merchId} introuvable`);
+    }
+
+    // Vérifier que le merchandising appartient à la visite
+    if (merchCheck.visitId !== visitId) {
+      throw new ForbiddenException(
+        'Ce merchandising n appartient pas à cette visite',
+      );
+    }
+
+    // Retourner la visite avec les merchandising
+    return await this.prisma.visit.findUnique({
+      where: { id: visitId },
+      include: {
+        orders: true,
+        merchChecks: true,
+      },
+    });
+  }
+
+  /**
+   * Supprimer un merchandising d'une visite
+   */
+  async removeMerchandisingFromVisit(
+    visitId: string,
+    merchId: string,
+    userId: string,
+  ) {
+    // Vérifier que la visite existe et appartient à l'utilisateur
+    const visit = await this.prisma.visit.findUnique({
+      where: { id: visitId },
+    });
+
+    if (!visit) {
+      throw new NotFoundException(`Visite ${visitId} introuvable`);
+    }
+
+    if (visit.userId !== userId) {
+      throw new ForbiddenException(
+        'Vous ne pouvez pas modifier une visite que vous n avez pas créée',
+      );
+    }
+
+    // Vérifier que le merchandising existe
+    const merchCheck = await this.prisma.merchCheck.findUnique({
+      where: { id: merchId },
+    });
+
+    if (!merchCheck) {
+      throw new NotFoundException(`Merchandising ${merchId} introuvable`);
+    }
+
+    // Supprimer le merchandising
+    await this.prisma.merchCheck.delete({
+      where: { id: merchId },
+    });
+
+    // Retourner la visite avec les merchandising restants
+    return await this.prisma.visit.findUnique({
+      where: { id: visitId },
+      include: {
+        orders: true,
+        merchChecks: true,
+      },
+    });
+  }
 }

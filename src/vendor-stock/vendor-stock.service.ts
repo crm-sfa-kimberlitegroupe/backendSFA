@@ -54,7 +54,7 @@ export class VendorStockService {
     });
 
     this.logger.log(
-      `✅ [getVendorStock] ${vendorStock.length} produits en stock trouvés`,
+      `[getVendorStock] ${vendorStock.length} produits en stock trouves`,
     );
 
     return vendorStock;
@@ -203,12 +203,15 @@ export class VendorStockService {
   }
 
   /**
-   * Récupère le portefeuille du vendeur
+   * Recupere le portefeuille du vendeur (produits avec stock > 0)
    */
   async getMyPortfolio(userId: string) {
     return this.prisma.vendorStock.findMany({
       where: {
         userId,
+        quantity: {
+          gt: 0,
+        },
       },
       include: {
         sku: {
@@ -336,6 +339,246 @@ export class VendorStockService {
         createdAt: 'desc',
       },
       take: filters?.limit || 100,
+    });
+  }
+
+  /**
+   * Supprimer un produit specifique du stock du vendeur
+   */
+  async removeProduct(userId: string, skuId: string, notes?: string) {
+    this.logger.log(`[removeProduct] Suppression du produit ${skuId} pour vendeur ${userId}`);
+
+    return this.prisma.$transaction(async (prisma) => {
+      // Verifier que le produit existe dans le stock du vendeur
+      const currentStock = await prisma.vendorStock.findUnique({
+        where: {
+          userId_skuId: {
+            userId,
+            skuId,
+          },
+        },
+        include: {
+          sku: {
+            select: {
+              shortDescription: true,
+            },
+          },
+        },
+      });
+
+      if (!currentStock) {
+        return {
+          success: false,
+          message: 'Produit non trouve dans votre stock',
+        };
+      }
+
+      if (currentStock.quantity === 0) {
+        // Supprimer l'enregistrement si quantite = 0
+        await prisma.vendorStock.delete({
+          where: {
+            userId_skuId: {
+              userId,
+              skuId,
+            },
+          },
+        });
+
+        return {
+          success: true,
+          message: 'Produit supprime du portefeuille',
+          productName: currentStock.sku?.shortDescription,
+          deletedQuantity: 0,
+        };
+      }
+
+      // Creer l'historique du mouvement
+      await prisma.stockHistory.create({
+        data: {
+          userId,
+          skuId,
+          movementType: 'REMOVE',
+          quantity: currentStock.quantity,
+          beforeQty: currentStock.quantity,
+          afterQty: 0,
+          notes: notes || 'Suppression du produit du portefeuille',
+        },
+      });
+
+      // Supprimer le produit du stock
+      await prisma.vendorStock.delete({
+        where: {
+          userId_skuId: {
+            userId,
+            skuId,
+          },
+        },
+      });
+
+      this.logger.log(
+        `[removeProduct] Produit ${currentStock.sku?.shortDescription} supprime (${currentStock.quantity} unites)`,
+      );
+
+      return {
+        success: true,
+        message: `Produit supprime avec succes`,
+        productName: currentStock.sku?.shortDescription,
+        deletedQuantity: currentStock.quantity,
+      };
+    });
+  }
+
+  /**
+   * Supprimer plusieurs produits du stock du vendeur
+   */
+  async removeMultipleProducts(userId: string, skuIds: string[], notes?: string) {
+    this.logger.log(`[removeMultipleProducts] userId: ${userId}`);
+    this.logger.log(`[removeMultipleProducts] skuIds: ${JSON.stringify(skuIds)}`);
+    this.logger.log(`[removeMultipleProducts] notes: ${notes}`);
+
+    // Verification des parametres
+    if (!skuIds || !Array.isArray(skuIds) || skuIds.length === 0) {
+      this.logger.warn('[removeMultipleProducts] skuIds invalide ou vide');
+      return {
+        success: false,
+        message: 'Liste de produits invalide ou vide',
+        deletedCount: 0,
+      };
+    }
+
+    this.logger.log(
+      `[removeMultipleProducts] Suppression de ${skuIds.length} produits pour vendeur ${userId}`,
+    );
+
+    return this.prisma.$transaction(
+      async (prisma) => {
+        // Recuperer les produits a supprimer
+        const productsToDelete = await prisma.vendorStock.findMany({
+          where: {
+            userId,
+            skuId: {
+              in: skuIds,
+            },
+          },
+        });
+
+        if (productsToDelete.length === 0) {
+          return {
+            success: false,
+            message: 'Aucun produit trouve dans votre stock',
+            deletedCount: 0,
+          };
+        }
+
+        // Preparer les donnees d'historique en batch
+        const historyData = productsToDelete
+          .filter((stock) => stock.quantity > 0)
+          .map((stock) => ({
+            userId,
+            skuId: stock.skuId,
+            movementType: 'REMOVE',
+            quantity: stock.quantity,
+            beforeQty: stock.quantity,
+            afterQty: 0,
+            notes: notes || 'Suppression multiple de produits',
+          }));
+
+        // Creer l'historique en batch (beaucoup plus rapide)
+        if (historyData.length > 0) {
+          await prisma.stockHistory.createMany({
+            data: historyData,
+          });
+        }
+
+        // Supprimer les produits
+        const deleteResult = await prisma.vendorStock.deleteMany({
+          where: {
+            userId,
+            skuId: {
+              in: skuIds,
+            },
+          },
+        });
+
+        this.logger.log(
+          `[removeMultipleProducts] ${deleteResult.count} produits supprimes`,
+        );
+
+        return {
+          success: true,
+          message: `${deleteResult.count} produit(s) supprime(s) avec succes`,
+          deletedCount: deleteResult.count,
+        };
+      },
+      {
+        timeout: 30000, // 30 secondes au lieu de 5
+      },
+    );
+  }
+
+  /**
+   * Vider completement le stock du vendeur (dechargement)
+   */
+  async unloadAllStock(userId: string, notes?: string) {
+    this.logger.log(`[unloadAllStock] Déchargement complet du stock pour vendeur ${userId}`);
+
+    return this.prisma.$transaction(async (prisma) => {
+      // Récupérer tous les produits en stock
+      const currentStock = await prisma.vendorStock.findMany({
+        where: {
+          userId,
+          quantity: {
+            gt: 0,
+          },
+        },
+        include: {
+          sku: {
+            select: {
+              shortDescription: true,
+            },
+          },
+        },
+      });
+
+      if (currentStock.length === 0) {
+        return {
+          success: true,
+          message: 'Aucun stock à décharger',
+          deletedCount: 0,
+        };
+      }
+
+      // Créer l'historique pour chaque produit déchargé
+      for (const stock of currentStock) {
+        await prisma.stockHistory.create({
+          data: {
+            userId,
+            skuId: stock.skuId,
+            movementType: 'REMOVE',
+            quantity: stock.quantity,
+            beforeQty: stock.quantity,
+            afterQty: 0,
+            notes: notes || 'Déchargement complet du stock',
+          },
+        });
+      }
+
+      // Supprimer tous les enregistrements VendorStock du vendeur
+      const deleteResult = await prisma.vendorStock.deleteMany({
+        where: {
+          userId,
+        },
+      });
+
+      this.logger.log(
+        `[unloadAllStock] ${deleteResult.count} produits decharges avec succes`,
+      );
+
+      return {
+        success: true,
+        message: `Stock déchargé avec succès: ${deleteResult.count} produit(s) supprimé(s)`,
+        deletedCount: deleteResult.count,
+      };
     });
   }
 }

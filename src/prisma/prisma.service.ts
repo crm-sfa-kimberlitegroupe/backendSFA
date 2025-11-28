@@ -27,8 +27,8 @@ export class PrismaService
     // eslint-disable-next-line @typescript-eslint/no-unsafe-call
     await this.$connect();
 
-    // Optimisation: Timeout pour les requêtes longues
-    await this.$executeRaw`SET statement_timeout = '10s'`;
+    // Augmenter le timeout pour les transactions longues (60 secondes)
+    await this.$executeRaw`SET statement_timeout = '60s'`;
   }
 
   async onModuleDestroy() {

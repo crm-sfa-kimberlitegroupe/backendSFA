@@ -2,7 +2,9 @@ import {
   Controller,
   Get,
   Post,
+  Delete,
   Body,
+  Param,
   UseGuards,
   Request,
   Query,
@@ -153,5 +155,65 @@ export class VendorStockController {
     if (limit) filters.limit = Number(limit);
 
     return this.vendorStockService.getHistory(req.user.userId, filters);
+  }
+
+  @Delete('remove/:skuId')
+  @Roles(RoleEnum.REP)
+  @ApiOperation({
+    summary: 'Supprimer un produit du stock',
+    description: 'Supprime un produit specifique du portefeuille du vendeur',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Produit supprime avec succes',
+  })
+  async removeProduct(
+    @Request() req: AuthenticatedRequest,
+    @Param('skuId') skuId: string,
+    @Body() body?: { notes?: string },
+  ) {
+    return this.vendorStockService.removeProduct(
+      req.user.userId,
+      skuId,
+      body?.notes,
+    );
+  }
+
+  @Post('remove-multiple')
+  @Roles(RoleEnum.REP)
+  @ApiOperation({
+    summary: 'Supprimer plusieurs produits du stock',
+    description: 'Supprime plusieurs produits du portefeuille du vendeur en une seule operation',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Produits supprimes avec succes',
+  })
+  async removeMultipleProducts(
+    @Request() req: AuthenticatedRequest,
+    @Body() body: { skuIds: string[]; notes?: string },
+  ) {
+    return this.vendorStockService.removeMultipleProducts(
+      req.user.userId,
+      body.skuIds,
+      body.notes,
+    );
+  }
+
+  @Delete('unload-all')
+  @Roles(RoleEnum.REP)
+  @ApiOperation({
+    summary: 'Decharger tout le stock',
+    description: 'Vide completement le portefeuille du vendeur. Cette action est irreversible.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Stock decharge avec succes',
+  })
+  async unloadAllStock(
+    @Request() req: AuthenticatedRequest,
+    @Body() body?: { notes?: string },
+  ) {
+    return this.vendorStockService.unloadAllStock(req.user.userId, body?.notes);
   }
 }

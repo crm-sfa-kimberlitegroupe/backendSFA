@@ -6,10 +6,39 @@ import {
   IsObject,
   IsArray,
   ValidateNested,
+  IsInt,
+  Min,
+  Max,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 
+// DTO pour une question de merchandising avec note
+export class MerchQuestionDto {
+  @IsString()
+  questionId: string;
+
+  @IsString()
+  question: string;
+
+  @IsInt()
+  @Min(0)
+  @Max(5)
+  rating: number; // Note de 0 a 5
+
+  @IsOptional()
+  @IsString()
+  comment?: string; // Commentaire optionnel
+}
+
 export class CreateMerchCheckDto {
+  // Questions avec notes (nouveau format)
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => MerchQuestionDto)
+  questions?: MerchQuestionDto[];
+
+  // Ancien format checklist (garde pour compatibilite)
   @IsOptional()
   @IsObject()
   checklist?: Record<string, any>;
@@ -18,9 +47,15 @@ export class CreateMerchCheckDto {
   @IsObject()
   planogram?: Record<string, any>;
 
+  // Score global (calcule automatiquement si questions fournies)
   @IsOptional()
   @IsNumber()
   score?: number;
+
+  // Note generale optionnelle
+  @IsOptional()
+  @IsString()
+  notes?: string;
 
   @IsOptional()
   @IsArray()

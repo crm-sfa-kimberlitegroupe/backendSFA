@@ -4,8 +4,8 @@ export const AUTH_CONSTANTS = {
   //Nom de la stratégie JWT utilisée par Passport
   JWT_STRATEGY: 'jwt',
 
-  //Durée d'expiration par défaut du JWT (15 minutes)
-  JWT_EXPIRATION: '15m',
+  //Durée d'expiration par défaut du JWT (8 heures - journée de travail)
+  JWT_EXPIRATION: '10h',
 
   //Durée d'expiration du refresh token (7 jours)
   REFRESH_TOKEN_EXPIRATION: '7d',

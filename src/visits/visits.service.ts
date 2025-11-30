@@ -525,14 +525,60 @@ export class VisitsService {
   }
 
   /**
+   * Récupérer la dernière visite d'un PDV (par outletId)
+   */
+  async getLatestVisitByOutlet(outletId: string, userId: string) {
+    const visit = await this.prisma.visit.findFirst({
+      where: { 
+        outletId,
+        userId, // Seulement les visites de cet utilisateur
+      },
+      orderBy: { checkinAt: 'desc' }, // La plus récente d'abord
+      include: {
+        outlet: true,
+        user: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+          },
+        },
+        merchChecks: {
+          include: {
+            merchPhotos: true,
+          },
+        },
+        orders: {
+          include: {
+            orderLines: {
+              include: {
+                sku: true,
+              },
+            },
+            payments: true,
+          },
+        },
+      },
+    });
+
+    if (!visit) {
+      throw new NotFoundException(`Aucune visite trouvée pour le PDV ${outletId}`);
+    }
+
+    return visit;
+  }
+
+  /**
    * Ajouter un merchandising à une visite existante
+   * Supporte le nouveau format avec questions et notes
    */
   async addMerchCheck(
     visitId: string,
     userId: string,
     data: CreateMerchCheckDto,
   ) {
-    // Vérifier que la visite existe et appartient à l'utilisateur
+    // Verifier que la visite existe et appartient a l'utilisateur
     const visit = await this.prisma.visit.findUnique({
       where: { id: visitId },
     });
@@ -543,21 +589,44 @@ export class VisitsService {
 
     if (visit.userId !== userId) {
       throw new ForbiddenException(
-        "Vous ne pouvez pas ajouter un merchandising à une visite que vous n'avez pas créée",
+        "Vous ne pouvez pas ajouter un merchandising a une visite que vous n'avez pas creee",
       );
     }
 
-    // Créer le MerchCheck
+    // Calculer le score automatiquement si des questions sont fournies
+    let calculatedScore = data.score;
+    if (data.questions && data.questions.length > 0) {
+      const totalRating = data.questions.reduce((sum, q) => sum + q.rating, 0);
+      const maxPossible = data.questions.length * 5; // Note max = 5
+      calculatedScore = Math.round((totalRating / maxPossible) * 100);
+    }
+
+    // Preparer les donnees de la checklist (combiner ancien et nouveau format)
+    const checklistData = {
+      // Ancien format si fourni
+      ...data.checklist,
+      // Nouveau format: questions avec notes
+      questions: data.questions?.map((q) => ({
+        questionId: q.questionId,
+        question: q.question,
+        rating: q.rating,
+        comment: q.comment || null,
+      })) || [],
+      // Notes generales
+      notes: data.notes || null,
+    };
+
+    // Creer le MerchCheck
     const merchCheck = await this.prisma.merchCheck.create({
       data: {
         visitId,
-        checklist: data.checklist as Prisma.JsonValue,
+        checklist: checklistData as unknown as Prisma.JsonValue,
         planogram: data.planogram as Prisma.JsonValue,
-        score: data.score,
+        score: calculatedScore,
       },
     });
 
-    // Créer les photos si fournies
+    // Creer les photos si fournies
     if (data.photos && data.photos.length > 0) {
       await this.prisma.merchPhoto.createMany({
         data: data.photos.map((photo) => ({
@@ -571,7 +640,13 @@ export class VisitsService {
       });
     }
 
-    return merchCheck;
+    // Retourner le merchCheck avec les photos
+    return await this.prisma.merchCheck.findUnique({
+      where: { id: merchCheck.id },
+      include: {
+        merchPhotos: true,
+      },
+    });
   }
 
   /**

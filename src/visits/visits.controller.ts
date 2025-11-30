@@ -142,6 +142,23 @@ export class VisitsController {
   }
 
   /**
+   * Récupérer la dernière visite d'un PDV (par outletId)
+   */
+  @Get('outlet/:outletId/latest')
+  @Roles('REP', 'ADMIN', 'SUP')
+  async getLatestVisitByOutlet(
+    @Request() req: AuthenticatedRequest,
+    @Param('outletId') outletId: string,
+  ) {
+    const visit = await this.visitsService.getLatestVisitByOutlet(outletId, req.user.userId);
+    return {
+      statusCode: HttpStatus.OK,
+      message: 'Visite récupérée avec succès',
+      data: visit,
+    };
+  }
+
+  /**
    * Récupérer une visite par ID
    */
   @Get(':id')

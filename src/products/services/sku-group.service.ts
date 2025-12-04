@@ -108,7 +108,9 @@ export class SKUGroupService {
         throw new NotFoundException('SKU Group not found');
       }
       if (error.code === 'P2003') {
-        throw new BadRequestException('Cannot delete SKU Group with existing mappings');
+        throw new BadRequestException(
+          'Cannot delete SKU Group with existing mappings',
+        );
       }
       throw error;
     }
@@ -243,7 +245,9 @@ export class SKUGroupService {
     }
 
     if (seller.role !== 'REP') {
-      throw new BadRequestException('User must be a REP to be assigned SKU groups');
+      throw new BadRequestException(
+        'User must be a REP to be assigned SKU groups',
+      );
     }
 
     // Verify group exists
@@ -266,7 +270,9 @@ export class SKUGroupService {
       }
 
       if (routePlan.userId !== dto.sellerId) {
-        throw new BadRequestException('Route plan does not belong to this seller');
+        throw new BadRequestException(
+          'Route plan does not belong to this seller',
+        );
       }
     }
 

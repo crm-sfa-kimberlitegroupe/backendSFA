@@ -222,18 +222,40 @@ model Visit {
 }
 
 model MerchCheck {
-  id          String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  visitId     String       @map("visit_id") @db.Uuid
+  id          String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  visitId     String           @map("visit_id") @db.Uuid
   checklist   Json?
   planogram   Json?
   score       Int?
-  createdAt   DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt   DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
-  visit       Visit        @relation(fields: [visitId], references: [id], onDelete: Cascade)
+  notes       String?
+  createdAt   DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime         @updatedAt @map("updated_at") @db.Timestamptz(6)
+  visit       Visit            @relation(fields: [visitId], references: [id], onDelete: Cascade)
   merchPhotos MerchPhoto[]
+  merchItems  MerchCheckItem[]
 
   @@index([visitId])
   @@map("merch_check")
+}
+
+// Element de merchandising par produit avec questions booleennes
+model MerchCheckItem {
+  id             String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  merchCheckId   String     @map("merch_check_id") @db.Uuid
+  skuId          String     @map("sku_id") @db.Uuid
+  isVisible      Boolean    @default(false) @map("is_visible")
+  isPriceCorrect Boolean    @default(false) @map("is_price_correct")
+  isWellStocked  Boolean    @default(false) @map("is_well_stocked")
+  comment        String?
+  createdAt      DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime   @updatedAt @map("updated_at") @db.Timestamptz(6)
+  merchCheck     MerchCheck @relation(fields: [merchCheckId], references: [id], onDelete: Cascade)
+  sku            SKU        @relation(fields: [skuId], references: [id], onDelete: Cascade)
+
+  @@unique([merchCheckId, skuId])
+  @@index([merchCheckId])
+  @@index([skuId])
+  @@map("merch_check_item")
 }
 
 model MerchPhoto {
@@ -409,6 +431,7 @@ model SKU {
   createdAt        DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt        DateTime          @updatedAt @map("updated_at") @db.Timestamptz(6)
   inventories      Inventory[]
+  merchCheckItems  MerchCheckItem[]
   orderLines       OrderLine[]
   promotionSKUs    PromotionSKU[]
   packSize         ProductPackSize   @relation(fields: [packSizeId], references: [id])

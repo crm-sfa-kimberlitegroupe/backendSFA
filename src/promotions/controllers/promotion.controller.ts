@@ -65,7 +65,9 @@ export class PromotionController {
   @Put(':id')
   @Roles('SUP')
   @ApiOperation({ summary: 'Update promotion' })
-  async updatePromotion(@Param('id') id: string, @Body() dto: UpdatePromotionDto) {
+  async updatePromotion(
+    @Param('id') id: string,
+    @Body() dto: UpdatePromotionDto) {
     return await this.promotionService.updatePromotion(id, dto);
   }
 

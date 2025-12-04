@@ -41,7 +41,7 @@ export class OutletsService {
         where: { id: userId },
         select: {
           territoryId: true,
-          assignedSectorId: true, // ⭐ Récupérer le secteur assigné au vendeur
+          assignedSectorId: true, // Récupérer le secteur assigné au vendeur
         },
       });
       if (user) {
@@ -50,7 +50,7 @@ export class OutletsService {
           territoryId = user.territoryId;
         }
 
-        // ⭐ HÉRITAGE AUTOMATIQUE DU SECTEUR
+        // HÉRITAGE AUTOMATIQUE DU SECTEUR
         // Si le vendeur a un secteur assigné, le PDV hérite de ce secteur
         if (user.assignedSectorId && !sectorId) {
           sectorId = user.assignedSectorId;
@@ -63,7 +63,7 @@ export class OutletsService {
       throw new BadRequestException('Le territoire est requis');
     }
 
-    // 🗺️ Récupérer les informations géographiques du territoire
+    // Récupérer les informations géographiques du territoire
     const territory = await this.prisma.territory.findUnique({
       where: { id: territoryId },
       select: {
@@ -92,8 +92,8 @@ export class OutletsService {
         openHours: createOutletDto.openHours || {},
         status: createOutletDto.status || OutletStatusEnum.PENDING,
         territoryId: territoryId,
-        sectorId: sectorId || undefined, // ⭐ Assigner le secteur hérité
-        // 🗺️ Copier les informations géographiques du territoire (prendre le premier de chaque tableau)
+        sectorId: sectorId || undefined, // Assigner le secteur hérité
+        // Copier les informations géographiques du territoire (prendre le premier de chaque tableau)
         region: territory.regions?.[0] || undefined,
         commune: territory.communes?.[0] || undefined,
         ville: territory.villes?.[0] || undefined,
@@ -148,49 +148,49 @@ export class OutletsService {
     ville?: string;
     quartier?: string;
   }) {
-    console.log('🔍 [findAll] Filtres reçus:', filters);
+    console.log('[findAll] Filtres reçus:', filters);
 
     const where: Prisma.OutletWhereInput = {};
 
     if (filters?.status) {
       where.status = filters.status;
-      console.log('🔍 Filtre status appliqué:', filters.status);
+      console.log('Filtre status appliqué:', filters.status);
     }
     if (filters?.territoryId) {
       where.territoryId = filters.territoryId;
-      console.log('🔍 Filtre territoryId appliqué:', filters.territoryId);
+      console.log('Filtre territoryId appliqué:', filters.territoryId);
     }
     if (filters?.sectorId) {
       where.sectorId = filters.sectorId;
-      console.log('🔍 Filtre sectorId appliqué:', filters.sectorId);
+      console.log('Filtre sectorId appliqué:', filters.sectorId);
     }
     if (filters?.channel) {
       where.channel = filters.channel;
-      console.log('🔍 Filtre channel appliqué:', filters.channel);
+      console.log('Filtre channel appliqué:', filters.channel);
     }
     if (filters?.proposedBy) {
       where.proposedBy = filters.proposedBy;
-      console.log('🔍 Filtre proposedBy appliqué:', filters.proposedBy);
+      console.log('Filtre proposedBy appliqué:', filters.proposedBy);
     }
-    // 🗺️ Filtres géographiques
+    // Filtres géographiques
     if (filters?.region) {
       where.region = filters.region;
-      console.log('🔍 Filtre region appliqué:', filters.region);
+      console.log('Filtre region appliqué:', filters.region);
     }
     if (filters?.commune) {
       where.commune = filters.commune;
-      console.log('🔍 Filtre commune appliqué:', filters.commune);
+      console.log('Filtre commune appliqué:', filters.commune);
     }
     if (filters?.ville) {
       where.ville = filters.ville;
-      console.log('🔍 Filtre ville appliqué:', filters.ville);
+      console.log('Filtre ville appliqué:', filters.ville);
     }
     if (filters?.quartier) {
       where.quartier = filters.quartier;
-      console.log('🔍 Filtre quartier appliqué:', filters.quartier);
+      console.log('Filtre quartier appliqué:', filters.quartier);
     }
 
-    console.log('🔍 Clause WHERE finale:', JSON.stringify(where));
+    console.log('Clause WHERE finale:', JSON.stringify(where));
 
     const outlets = await this.prisma.outlet.findMany({
       where,
@@ -225,9 +225,9 @@ export class OutletsService {
       },
     });
 
-    console.log('🔍 Nombre de PDV trouvés dans la DB:', outlets?.length || 0);
+    console.log('Nombre de PDV trouvés dans la DB:', outlets?.length || 0);
     if (outlets?.length > 0) {
-      console.log('🔍 Premier PDV:', {
+      console.log('Premier PDV:', {
         id: outlets[0].id,
         name: outlets[0].name,
         status: outlets[0].status,

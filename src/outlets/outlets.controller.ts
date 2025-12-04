@@ -52,7 +52,7 @@ export class OutletsController {
     const userRole = req?.user?.role;
     const userTerritoryId = req?.user?.territoryId;
 
-    // 🔒 FILTRAGE PAR TERRITOIRE selon le rôle
+    // FILTRAGE PAR TERRITOIRE selon le rôle
     // ADMIN/SUP : Voient SEULEMENT les PDV de LEUR territoire
     let finalTerritoryId = territoryId;
 
@@ -79,7 +79,7 @@ export class OutletsController {
   }
 
   /**
-   * 🔒 NOUVEL ENDPOINT DÉDIÉ : Récupérer les PDV de MON territoire
+   * NOUVEL ENDPOINT DÉDIÉ : Récupérer les PDV de MON territoire
    * Route: GET /outlets/my-territory?status=APPROVED
    */
   @Get('my-territory')
@@ -92,13 +92,13 @@ export class OutletsController {
     const userTerritoryId = req?.user?.territoryId;
 
     if (!userTerritoryId) {
-      console.error('❌ Pas de territoryId dans le JWT');
+      console.error('Pas de territoryId dans le JWT');
       throw new ForbiddenException(
         'Aucun territoire assigné à cet utilisateur',
       );
     }
 
-    // 🎯 Forcer le territoryId de l'utilisateur connecté
+    // Forcer le territoryId de l'utilisateur connecté
     const filters = {
       status,
       territoryId: userTerritoryId, // ← FORCÉ
@@ -125,7 +125,7 @@ export class OutletsController {
     const validatorId = req.user?.userId;
     const userTerritoryId = req.user?.territoryId;
 
-    // 🔒 VÉRIFICATION : L'ADMIN peut valider SEULEMENT les PDV de SON territoire
+    // VÉRIFICATION : L'ADMIN peut valider SEULEMENT les PDV de SON territoire
     if (userTerritoryId) {
       const outlet = await this.outletsService.findOne(id);
       if (outlet.territoryId !== userTerritoryId) {
@@ -148,7 +148,7 @@ export class OutletsController {
     const validatorId = req?.user?.userId;
     const userTerritoryId = req?.user?.territoryId;
 
-    // 🔒 VÉRIFICATION : L'ADMIN peut rejeter SEULEMENT les PDV de SON territoire
+    // VÉRIFICATION : L'ADMIN peut rejeter SEULEMENT les PDV de SON territoire
     if (userTerritoryId) {
       const outlet = await this.outletsService.findOne(id);
       if (outlet.territoryId !== userTerritoryId) {

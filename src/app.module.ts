@@ -8,13 +8,14 @@ import { PrismaModule } from './prisma/prisma.module';
 import { TerritoriesModule } from './territories/territories.module';
 import { OutletsModule } from './outlets/outlets.module';
 import { RoutesModule } from './routes/routes.module';
-// import { SKUsModule } from './skus/skus.module'; // Remplacé par ProductsModule
+// import { SKUsModule } from './skus/skus.module'; // Remplace par ProductsModule
 import { VendorStockModule } from './vendor-stock/vendor-stock.module';
 import { ProductsModule } from './products/products.module';
 import { PromotionsModule } from './promotions/promotions.module';
 import { OrdersModule } from './orders/orders.module';
 import { VisitsModule } from './visits/visits.module';
 import { RoutePlansModule } from './route-plans/route-plans.module';
+import { MerchandisingModule } from './merchandising/merchandising.module';
 
 @Module({
   imports: [
@@ -28,13 +29,14 @@ import { RoutePlansModule } from './route-plans/route-plans.module';
     TerritoriesModule,
     OutletsModule,
     RoutesModule,
-    // SKUsModule, // Temporairement désactivé - remplacé par ProductsModule
+    // SKUsModule, // Temporairement desactive - remplace par ProductsModule
     VendorStockModule,
     ProductsModule,
     PromotionsModule,
     OrdersModule,
     VisitsModule,
     RoutePlansModule,
+    MerchandisingModule,
   ],
   controllers: [AppController],
   providers: [AppService],

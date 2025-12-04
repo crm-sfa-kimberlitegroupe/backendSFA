@@ -85,7 +85,9 @@ export class UsersService {
         territoryId: territoryId,
         phone: createUserDto.phone,
         matricule: createUserDto.matricule || null,
-        hireDate: createUserDto.hireDate ? new Date(createUserDto.hireDate) : null,
+        hireDate: createUserDto.hireDate
+          ? new Date(createUserDto.hireDate)
+          : null,
         ...(managerId && { managerId }),
       },
     });

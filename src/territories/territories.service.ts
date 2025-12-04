@@ -358,7 +358,7 @@ export class TerritoriesService {
         name,
         level: (level as TerritoryLevel) || TerritoryLevel.SECTEUR,
         parentId: parentId || null,
-        createdBy: createdBy || null, // 👤 ID de l'admin créateur
+        createdBy: createdBy || null, // ID de l'admin créateur
       },
       include: {
         parent: true,
@@ -916,7 +916,7 @@ export class TerritoriesService {
   }
 
   /**
-   * 🗺️ Récupérer les informations géographiques d'un territoire
+   * Récupérer les informations géographiques d'un territoire
    * Retourne toutes les valeurs géographiques uniques du territoire et de ses enfants
    */
   async getTerritoryGeoInfo(territoryId: string): Promise<TerritoryGeoInfo> {
@@ -1081,7 +1081,7 @@ export class TerritoriesService {
 
     // Vérifier que le nouvel admin n'a pas déjà un territoire
     const existingAssignment = await this.prisma.territory.findFirst({
-      where: { 
+      where: {
         adminId: newAdminId,
         id: { not: territoryId }, // Exclure le territoire actuel
       },

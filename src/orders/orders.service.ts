@@ -136,7 +136,7 @@ export class OrdersService {
       });
     }
 
-    this.logger.log('✅ Validation stock OK, démarrage transaction');
+    this.logger.log('Validation stock OK, démarrage transaction');
 
     // Étape 3 : Transaction atomique pour créer la vente et mettre à jour le stock
     try {
@@ -157,7 +157,7 @@ export class OrdersService {
             },
           });
 
-          this.logger.log(`📝 Order créé : ${order.id}`);
+          this.logger.log(`Order créé : ${order.id}`);
 
           // 3.2 : Créer les OrderLines avec calculs
           let totalHt = new Decimal(0);
@@ -211,7 +211,7 @@ export class OrdersService {
               });
 
               this.logger.log(
-                `📄 OrderLine créée : ${orderLine.id} (SKU: ${lineDto.skuId})`,
+                `OrderLine créée : ${orderLine.id} (SKU: ${lineDto.skuId})`,
               );
 
               // 3.3 : Mettre à jour le stock du vendeur
@@ -267,14 +267,14 @@ export class OrdersService {
               });
 
               this.logger.log(
-                `  📦 Stock mis à jour pour SKU ${lineDto.skuId}: ${beforeQty} → ${afterQty}`,
+                ` Stock mis à jour pour SKU ${lineDto.skuId}: ${beforeQty} → ${afterQty}`,
               );
 
               return orderLine;
             }),
           );
 
-          this.logger.log(`📦 ${orderLines.length} OrderLines créées`);
+          this.logger.log(`${orderLines.length} OrderLines créées`);
 
           // 3.4 : Mettre à jour les totaux de l'Order
           const finalTotalHt = totalHt.sub(totalDiscount);
@@ -291,7 +291,7 @@ export class OrdersService {
           });
 
           this.logger.log(
-            `💰 Totaux mis à jour - HT: ${finalTotalHt.toString()}, TTC: ${totalTtc.toString()}, Tax: ${finalTaxTotal.toString()}`,
+            `Totaux mis à jour - HT: ${finalTotalHt.toString()}, TTC: ${totalTtc.toString()}, Tax: ${finalTaxTotal.toString()}`,
           );
 
           // 3.5 : Créer les paiements si fournis
@@ -313,7 +313,7 @@ export class OrdersService {
               ),
             );
 
-            this.logger.log(`💳 ${payments.length} paiement(s) enregistré(s)`);
+            this.logger.log(`${payments.length} paiement(s) enregistré(s)`);
           }
 
           // Retourner l'order complet avec toutes les relations
@@ -363,7 +363,7 @@ export class OrdersService {
         },
       );
 
-      this.logger.log(`✅ Vente ${result.id} créée avec succès`);
+      this.logger.log(`Vente ${result.id} créée avec succès`);
 
       return {
         success: true,
@@ -371,7 +371,7 @@ export class OrdersService {
         order: result,
       };
     } catch (error) {
-      this.logger.error('❌ Erreur lors de la transaction:', error);
+      this.logger.error('Erreur lors de la transaction:', error);
       const errorMessage =
         error instanceof Error ? error.message : 'Erreur inconnue';
       throw new BadRequestException(

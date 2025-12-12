@@ -387,6 +387,21 @@ export class TerritoriesController {
   }
 
   /**
+   * GET /territories/managers/:managerId/territories
+   * Récupérer tous les territoires d'un manager SUP
+   */
+  @Get('managers/:managerId/territories')
+  @Roles(RoleEnum.ADMIN, RoleEnum.SUP)
+  async getManagerTerritories(@Param('managerId') managerId: string) {
+    const territories = await this.territoriesService.getManagerTerritories(managerId);
+    return {
+      success: true,
+      data: territories,
+      message: 'Territoires du manager récupérés avec succès',
+    };
+  }
+
+  /**
    * GET /territories/:id
    * Récupérer un territoire par son ID
    */

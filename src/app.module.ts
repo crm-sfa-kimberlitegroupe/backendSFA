@@ -16,6 +16,7 @@ import { OrdersModule } from './orders/orders.module';
 import { VisitsModule } from './visits/visits.module';
 import { RoutePlansModule } from './route-plans/route-plans.module';
 import { MerchandisingModule } from './merchandising/merchandising.module';
+import { KpisModule } from './kpis/kpis.module';
 
 @Module({
   imports: [
@@ -37,6 +38,7 @@ import { MerchandisingModule } from './merchandising/merchandising.module';
     VisitsModule,
     RoutePlansModule,
     MerchandisingModule,
+    KpisModule,
   ],
   controllers: [AppController],
   providers: [AppService],

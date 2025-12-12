@@ -1351,4 +1351,73 @@ export class TerritoriesService {
 
     return updatedSector;
   }
+
+  /**
+   * Récupérer tous les territoires d'un manager SUP
+   */
+  async getManagerTerritories(managerId: string) {
+    const territories = await this.prisma.territory.findMany({
+      where: {
+        managerId: managerId,
+        isActive: true,
+      },
+      select: {
+        id: true,
+        code: true,
+        name: true,
+        level: true,
+        regions: true,
+        communes: true,
+        villes: true,
+        quartiers: true,
+        codesPostaux: true,
+        lat: true,
+        lng: true,
+        population: true,
+        superficie: true,
+        densitePopulation: true,
+        potentielCommercial: true,
+        categorieMarche: true,
+        typeZone: true,
+        nombrePDVEstime: true,
+        tauxPenetration: true,
+        parentId: true,
+        adminId: true,
+        managerId: true,
+        isActive: true,
+        notes: true,
+        createdAt: true,
+        updatedAt: true,
+        admin: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+            role: true,
+          },
+        },
+        parent: {
+          select: {
+            id: true,
+            code: true,
+            name: true,
+            level: true,
+          },
+        },
+        _count: {
+          select: {
+            outletsTerritory: true,
+            outletsSector: true,
+            assignedUsers: true,
+          },
+        },
+      },
+      orderBy: {
+        name: 'asc',
+      },
+    });
+
+    return territories;
+  }
 }

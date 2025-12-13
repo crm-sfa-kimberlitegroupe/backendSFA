@@ -119,3 +119,28 @@ export class AllKpisDto {
   @ApiProperty({ type: VenteParVisiteDto })
   venteParVisite: VenteParVisiteDto;
 }
+
+export class VendorPerformanceDto {
+  @ApiProperty({ description: 'ID du vendeur' })
+  id: string;
+
+  @ApiProperty({ description: 'Nom du vendeur' })
+  name: string;
+
+  @ApiProperty({ description: 'Montant total des ventes' })
+  sales: number;
+
+  @ApiProperty({ description: 'Nombre de visites' })
+  visits: number;
+
+  @ApiProperty({ description: 'Rang (pour top performers)', required: false })
+  rank?: number;
+}
+
+export class TeamPerformanceDto {
+  @ApiProperty({ type: [VendorPerformanceDto], description: 'Top 3 vendeurs' })
+  topPerformers: VendorPerformanceDto[];
+
+  @ApiProperty({ type: [VendorPerformanceDto], description: 'Vendeurs à surveiller' })
+  lowPerformers: VendorPerformanceDto[];
+}

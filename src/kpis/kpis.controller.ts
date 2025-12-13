@@ -16,6 +16,7 @@ import {
   FrequenceVisiteDto,
   VenteParVisiteDto,
   AllKpisDto,
+  TeamPerformanceDto,
 } from './dto/kpi-response.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
@@ -126,5 +127,18 @@ export class KpisController {
   @ApiResponse({ status: 200, type: AllKpisDto })
   async getAllKpis(@Query() query: KpiQueryDto): Promise<AllKpisDto> {
     return this.kpisService.getAllKpis(query);
+  }
+
+  @Get('team-performance')
+  @Roles(RoleEnum.ADMIN, RoleEnum.SUP)
+  @ApiOperation({
+    summary: 'Performances de l equipe',
+    description: 'Récupère les top performers et les vendeurs à surveiller',
+  })
+  @ApiResponse({ status: 200, type: TeamPerformanceDto })
+  async getTeamPerformance(
+    @Query() query: KpiQueryDto,
+  ): Promise<TeamPerformanceDto> {
+    return this.kpisService.getTeamPerformance(query);
   }
 }

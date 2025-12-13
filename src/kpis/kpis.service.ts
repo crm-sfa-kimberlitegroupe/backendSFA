@@ -10,6 +10,8 @@ import {
   FrequenceVisiteDto,
   VenteParVisiteDto,
   AllKpisDto,
+  TeamPerformanceDto,
+  VendorPerformanceDto,
 } from './dto/kpi-response.dto';
 
 @Injectable()
@@ -444,6 +446,78 @@ export class KpisService {
       hitRate,
       frequenceVisite,
       venteParVisite,
+    };
+  }
+
+  async getTeamPerformance(query: KpiQueryDto): Promise<TeamPerformanceDto> {
+    const dateRange = this.getDateRange(query);
+
+    // Récupérer tous les vendeurs du territoire avec leurs stats
+    const vendors = await this.prisma.user.findMany({
+      where: {
+        territoryId: query.territoryId,
+        role: 'REP',
+      },
+      select: {
+        id: true,
+        firstName: true,
+        lastName: true,
+        orders: {
+          where: {
+            createdAt: {
+              gte: dateRange.startDate,
+              lte: dateRange.endDate,
+            },
+          },
+          select: {
+            totalTtc: true,
+          },
+        },
+        visits: {
+          where: {
+            checkinAt: {
+              gte: dateRange.startDate,
+              lte: dateRange.endDate,
+            },
+          },
+          select: {
+            id: true,
+          },
+        },
+      },
+    });
+
+    // Calculer les performances de chaque vendeur
+    const performances: VendorPerformanceDto[] = vendors.map((vendor) => {
+      const sales = vendor.orders.reduce(
+        (sum, order) => sum + Number(order.totalTtc),
+        0,
+      );
+      const visits = vendor.visits.length;
+
+      return {
+        id: vendor.id,
+        name: `${vendor.firstName} ${vendor.lastName}`,
+        sales,
+        visits,
+      };
+    });
+
+    // Trier par ventes décroissantes
+    performances.sort((a, b) => b.sales - a.sales);
+
+    // Top 3 performers
+    const topPerformers = performances.slice(0, 3).map((perf, index) => ({
+      ...perf,
+      rank: index + 1,
+    }));
+
+    // Bottom 2 performers (ceux à surveiller)
+    const lowPerformers = performances.slice(-2).reverse();
+
+    return {
+      topPerformers,
+      lowPerformers,
     };
   }
 }
